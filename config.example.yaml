@@ -1,0 +1,41 @@
+# tuncat configuration
+# Default lookup: ./tuncat/config.yaml, ./.tuncat/config.yaml,
+#                 ./config.yaml (legacy), ~/tuncat/config.yaml, ~/.tuncat/config.yaml
+# You can always override with: -config /path/to/config.yaml
+
+# VPN server address
+server: "vpn.example.com/group"
+
+# Authentication
+username: "your.username"
+# password: ""              # plaintext, or use: tuncat obscure
+# password: "obscured:..."  # run `tuncat obscure` to generate
+
+# Certificate (.pfx file)
+pfx_path: "/path/to/your.pfx"
+# pfx_password: ""          # plaintext, or use: tuncat obscure
+
+# OpenConnect-compatible settings (still accepted for UX compatibility)
+# protocol: "anyconnect"
+# user_agent: "AnyConnect"
+base_mtu: 1200
+
+# Split tunnel networks (CIDR notation)
+# split_routes:
+#   - "10.0.0.0/8"
+
+# DNS domains routed through VPN
+# dns_domains:
+#   - "corp.example.com"
+
+# Optional RPC bind address for vpncore service mode (localhost only).
+# rpc_addr: "127.0.0.1:6210"
+
+# Optional file path for DEBUG-level vpncore logs.
+# When running with -verbose and this is unset, defaults to <temp-dir>/tuncat-debug.log
+# (for example /tmp/tuncat-debug.log on Linux/macOS).
+# debug_log_path: "/path/to/tuncat-debug.log"
+
+# Optional server certificate pin for TLS verification override.
+# Examples: "sha256:..." or "pin-sha256:..."
+# server_cert: ""

@@ -1,0 +1,110 @@
+# tuncat
+
+Universal tunnel managment utility in pure Go. Inspired by netcat and rclone.
+
+`tuncat` is a Go VPN client for Cisco AnyConnect-compatible gateways. It embeds the VPN core in-process and keeps the legacy CLI/config contract intact.
+
+## What stays the same
+
+- same CLI flags (`-server`, `-username`, `-password`, `-pfx-path`, `-pfx-password`, `-base-mtu`, `-config`, `-verbose`)
+- same YAML fields (`server`, `username`, `password`, `pfx_path`, `pfx_password`, `base_mtu`, `split_routes`, `dns_domains`, etc.)
+- same `tuncat obscure` workflow for secret values
+- cert + password auth is mandatory
+
+## Runtime Notes
+
+- Linux: root privileges and `/dev/net/tun`
+- macOS: administrator privileges to configure the tunnel, routes, and DNS
+  Known exception: interface address setup still invokes the system `ifconfig` binary.
+- Windows: Administrator privileges to configure the tunnel, routes, and DNS
+
+No external `openconnect` or `openssl` runtime binaries are required.
+
+## Quick Start
+
+By default, `tuncat` searches config in this order:
+
+- `./tuncat/config.yaml`
+- `./.tuncat/config.yaml`
+- `./config.yaml` (legacy fallback)
+- `~/tuncat/config.yaml`
+- `~/.tuncat/config.yaml`
+
+Create `./tuncat/config.yaml` (same schema as before):
+
+```yaml
+server: "vpn.example.com/external"
+username: "<USERNAME>"
+password: "obscured:<HASH>"
+pfx_path: "denys.dudko.pfx"
+pfx_password: "obscured:<HASH>"
+base_mtu: 1200
+
+split_routes:
+  - "10.0.0.0/8"
+
+dns_domains:
+  - "example.internal"
+  - "group.example.internal"
+  - "external.example.internal"
+```
+
+Generate obscured values:
+
+```sh
+tuncat obscure
+```
+
+Connect:
+
+```sh
+sudo tuncat -config ./tuncat/config.yaml
+```
+
+Disconnect with `Ctrl+C`.
+
+## Usage
+
+```sh
+$ tuncat --help
+
+Usage of tuncat:
+  -base-mtu int
+        base MTU value
+  -config string
+        path to config file
+  -password string
+        login password
+  -pfx-password string
+        password for .pfx file
+  -pfx-path string
+        path to .pfx certificate file
+  -server string
+        VPN server address
+  -username string
+        login username
+  -verbose
+        enable verbose VPN core logs
+  -version
+        show version
+```
+
+## Config Example
+
+See `config.example.yaml`.
+
+Legacy fields are still accepted:
+
+- `protocol`
+- `user_agent`
+- `server_cert`
+- `openconnect_path` (kept for compatibility; ignored by embedded runtime)
+
+## Development
+
+```sh
+make build
+make test
+make cross-build
+make clean
+```
