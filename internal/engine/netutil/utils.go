@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/pion/dtls/v3/pkg/protocol"
-	"tuncat/internal/engine/netutil/waterutil"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil/waterutil"
 )
 
 func InArray(arr []string, str string) bool {

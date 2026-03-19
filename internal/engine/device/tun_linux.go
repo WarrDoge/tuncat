@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
-	"tuncat/internal/engine/device/rwcancel"
+	"github.com/WarrDoge/tuncat/internal/engine/device/rwcancel"
 )
 
 const (

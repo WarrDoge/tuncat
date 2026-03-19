@@ -1,9 +1,9 @@
-module tuncat
+module github.com/WarrDoge/tuncat
 
 go 1.26.1
 
 require (
-	github.com/apieasy/gson v0.2.3
+	github.com/WarrDoge/sslcon v0.1.0
 	github.com/gopacket/gopacket v1.5.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackpal/gateway v1.1.1
@@ -11,7 +11,6 @@ require (
 	github.com/lysShub/wintun-go v0.0.0-20240606130541-1acbbbe408f3
 	github.com/pion/dtls/v3 v3.0.7
 	github.com/sourcegraph/jsonrpc2 v0.2.1
-	github.com/spf13/cobra v1.10.2
 	github.com/vishvananda/netlink v1.3.1
 	go.uber.org/atomic v1.11.0
 	golang.org/x/net v0.47.0
@@ -20,26 +19,17 @@ require (
 	golang.zx2c4.com/wireguard/windows v0.5.3
 	gopkg.in/yaml.v3 v3.0.1
 	software.sslmate.com/src/go-pkcs12 v0.7.0
-	sslcon v0.0.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lysShub/divert-go v0.0.0-20250418062248-28e4462def61 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/transport/v3 v3.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/tidwall/gjson v1.18.0 // indirect
-	github.com/tidwall/match v1.2.0 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
-	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 )
-
-replace sslcon => github.com/WarrDoge/sslcon v0.0.0-20260319124926-a5332c10d7d1

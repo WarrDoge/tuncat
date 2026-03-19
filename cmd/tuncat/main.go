@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"tuncat/internal/cli"
+	"github.com/WarrDoge/tuncat/internal/cli"
 )
 
 func main() {

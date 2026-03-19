@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
-	"tuncat/internal/engine/network"
+	"github.com/WarrDoge/tuncat/internal/engine/network"
 )
 
 func findConfigFile(flagPath string) string {

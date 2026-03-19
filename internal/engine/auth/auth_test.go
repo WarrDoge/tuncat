@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"testing"
 
-	"tuncat/internal/engine"
-	"tuncat/internal/engine/protocol"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
 )
 
 func TestDetectAnyConnectPlatform(t *testing.T) {

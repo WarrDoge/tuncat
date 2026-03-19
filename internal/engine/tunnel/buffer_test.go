@@ -3,7 +3,7 @@ package tunnel
 import (
 	"testing"
 
-	"tuncat/internal/engine/protocol"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
 )
 
 func TestPayloadBufferGetPutResetsPayload(t *testing.T) {

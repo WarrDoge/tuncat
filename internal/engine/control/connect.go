@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"tuncat/internal/engine"
-	"tuncat/internal/engine/auth"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/network"
-	enginesession "tuncat/internal/engine/session"
-	"tuncat/internal/engine/tunnel"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	"github.com/WarrDoge/tuncat/internal/engine/auth"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/network"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
+	"github.com/WarrDoge/tuncat/internal/engine/tunnel"
 )
 
 func ensureContext(ctx *engine.Context) error {

@@ -5,13 +5,13 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/device"
-	"tuncat/internal/engine/netutil"
-	"tuncat/internal/engine/network"
-	"tuncat/internal/engine/protocol"
-	enginesession "tuncat/internal/engine/session"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/device"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
+	"github.com/WarrDoge/tuncat/internal/engine/network"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 func setupTun(ctx *engine.Context, cSess *enginesession.ConnSession) error {

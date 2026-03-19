@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/netutil"
-	"tuncat/internal/engine/network"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
+	"github.com/WarrDoge/tuncat/internal/engine/network"
 )
 
 func initTunnel(ctx *engine.Context) map[string]string {

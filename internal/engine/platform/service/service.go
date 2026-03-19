@@ -6,9 +6,9 @@ import (
 	"runtime"
 
 	"github.com/kardianos/service"
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/control"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/control"
 )
 
 type program struct {

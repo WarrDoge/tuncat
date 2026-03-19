@@ -13,10 +13,10 @@ import (
 	"github.com/jackpal/gateway"
 	"golang.org/x/net/route"
 	"golang.org/x/sys/unix"
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/device"
-	enginesession "tuncat/internal/engine/session"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/device"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 const (

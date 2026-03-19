@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/protocol"
-	enginesession "tuncat/internal/engine/session"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSession, resp *http.Response) {

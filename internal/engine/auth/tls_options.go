@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"tuncat/internal/engine"
+	"github.com/WarrDoge/tuncat/internal/engine"
 )
 
 func SetTLSCredentials(ctx *engine.Context, cert tls.Certificate, rootCAs *x509.CertPool) {

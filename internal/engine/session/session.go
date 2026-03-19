@@ -11,9 +11,9 @@ import (
 	"time"
 
 	uatomic "go.uber.org/atomic"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/netutil"
-	"tuncat/internal/engine/protocol"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
 )
 
 type Session struct {

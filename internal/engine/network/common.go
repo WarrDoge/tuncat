@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"tuncat/internal/engine/netutil"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
 )
 
 func NormalizeDNSDomains(domains []string) []string {

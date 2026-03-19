@@ -15,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sourcegraph/jsonrpc2"
 	ws "github.com/sourcegraph/jsonrpc2/websocket"
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
 )
 
 const (

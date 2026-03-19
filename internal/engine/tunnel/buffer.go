@@ -3,7 +3,7 @@ package tunnel
 import (
 	"sync"
 
-	"tuncat/internal/engine/protocol"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
 )
 
 const BufferSize = 2048

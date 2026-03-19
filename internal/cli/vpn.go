@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"sslcon/auth"
-	"sslcon/base"
-	"sslcon/lib"
-	"sslcon/rpc"
+	"github.com/WarrDoge/sslcon/auth"
+	"github.com/WarrDoge/sslcon/base"
+	"github.com/WarrDoge/sslcon/lib"
+	"github.com/WarrDoge/sslcon/rpc"
 )
 
 func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected func()) (int, error) {

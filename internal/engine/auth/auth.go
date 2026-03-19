@@ -16,11 +16,11 @@ import (
 	"text/template"
 	"time"
 
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/netutil"
-	"tuncat/internal/engine/protocol"
-	enginesession "tuncat/internal/engine/session"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 const (

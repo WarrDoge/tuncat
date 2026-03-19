@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
-	"tuncat/internal/engine"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/device"
-	"tuncat/internal/engine/netutil"
-	enginesession "tuncat/internal/engine/session"
+	"github.com/WarrDoge/tuncat/internal/engine"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/device"
+	"github.com/WarrDoge/tuncat/internal/engine/netutil"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 type RoutingState struct {

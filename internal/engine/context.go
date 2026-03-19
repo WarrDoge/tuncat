@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 
-	engineconfig "tuncat/internal/engine/config"
-	enginesession "tuncat/internal/engine/session"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 type Profile struct {

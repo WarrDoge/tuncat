@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/pion/dtls/v3"
-	engineconfig "tuncat/internal/engine/config"
-	"tuncat/internal/engine/protocol"
-	enginesession "tuncat/internal/engine/session"
+	engineconfig "github.com/WarrDoge/tuncat/internal/engine/config"
+	"github.com/WarrDoge/tuncat/internal/engine/protocol"
+	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
 
 func dtlsChannel(cSess *enginesession.ConnSession, preMasterSecret []byte) {
