@@ -23,6 +23,7 @@ type Config struct {
 	BaseMTU      int      `yaml:"base_mtu"`
 	SplitRoutes  []string `yaml:"split_routes"`
 	DNSDomains   []string `yaml:"dns_domains"`
+	VerifyURL    string   `yaml:"verify_url"`
 	RPCAddr      string   `yaml:"rpc_addr"`
 	DebugLogPath string   `yaml:"debug_log_path"`
 

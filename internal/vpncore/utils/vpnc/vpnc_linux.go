@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/vishvananda/netlink"
 	vpncore "tuncat/internal/vpncore"
@@ -59,6 +58,11 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 	if ctx == nil || ctx.LocalInterface == nil || state.localInterface == nil || state.iface == nil {
 		return fmt.Errorf("routing state is not initialized")
 	}
+	handle, err := netlink.NewHandle(netlink.FAMILY_V4)
+	if err != nil {
+		return err
+	}
+	defer handle.Close()
 
 	dst, _ := netlink.ParseIPNet(cSess.ServerAddress + "/32")
 	gateway := net.ParseIP(ctx.LocalInterface.Gateway)
@@ -67,7 +71,7 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 	localInterfaceIndex := state.localInterface.Attrs().Index
 
 	route := netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst, Gw: gateway}
-	err := netlink.RouteAdd(&route)
+	err = handle.RouteAdd(&route)
 	if err != nil && !strings.HasSuffix(err.Error(), "exists") {
 		return routingError(dst, err)
 	}
@@ -81,8 +85,8 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 		splitInclude = append(splitInclude, "0.0.0.0/0.0.0.0")
 
 		zero, _ := netlink.ParseIPNet("0.0.0.0/0")
-		delAllRoute(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero})
-		_ = netlink.RouteAdd(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero, Gw: gateway, Priority: 10})
+		_ = delAllRoute(handle, &netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero}, netlink.RT_FILTER_OIF|netlink.RT_FILTER_DST)
+		_ = handle.RouteAdd(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero, Gw: gateway, Priority: 10})
 	}
 	cSess.SplitInclude = splitInclude
 
@@ -93,7 +97,7 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 		}
 		dst, _ = netlink.ParseIPNet(cidr)
 		route = netlink.Route{LinkIndex: ifaceIndex, Dst: dst, Priority: 6}
-		err = netlink.RouteAdd(&route)
+		err = handle.RouteAdd(&route)
 		if err != nil && !strings.HasSuffix(err.Error(), "exists") {
 			return routingError(dst, err)
 		}
@@ -106,7 +110,7 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 		}
 		dst, _ = netlink.ParseIPNet(cidr)
 		route = netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst, Gw: gateway, Priority: 5}
-		err = netlink.RouteAdd(&route)
+		err = handle.RouteAdd(&route)
 		if err != nil && !strings.HasSuffix(err.Error(), "exists") {
 			return routingError(dst, err)
 		}
@@ -124,6 +128,11 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 	if ctx == nil || ctx.LocalInterface == nil || state.localInterface == nil || state.iface == nil {
 		return
 	}
+	handle, err := netlink.NewHandle(netlink.FAMILY_V4)
+	if err != nil {
+		return
+	}
+	defer handle.Close()
 
 	ifaceIndex := state.iface.Attrs().Index
 	localInterfaceIndex := state.localInterface.Attrs().Index
@@ -132,14 +141,14 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 		if ipMask == "0.0.0.0/0.0.0.0" || ipMask == "0.0.0.0/0" {
 			zero, _ := netlink.ParseIPNet("0.0.0.0/0")
 			gateway := net.ParseIP(ctx.LocalInterface.Gateway)
-			_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero})
-			_ = netlink.RouteAdd(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero, Gw: gateway})
+			_ = handle.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero})
+			_ = handle.RouteAdd(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: zero, Gw: gateway})
 			break
 		}
 	}
 
 	dst, _ := netlink.ParseIPNet(cSess.ServerAddress + "/32")
-	_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
+	_ = handle.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
 
 	for _, routeSpec := range cSess.SplitInclude {
 		cidr, err := routeToCIDR(routeSpec)
@@ -147,7 +156,7 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 			continue
 		}
 		dst, _ = netlink.ParseIPNet(cidr)
-		_ = netlink.RouteDel(&netlink.Route{LinkIndex: ifaceIndex, Dst: dst})
+		_ = handle.RouteDel(&netlink.Route{LinkIndex: ifaceIndex, Dst: dst})
 	}
 
 	for _, routeSpec := range cSess.SplitExclude {
@@ -156,7 +165,7 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 			continue
 		}
 		dst, _ = netlink.ParseIPNet(cidr)
-		_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
+		_ = handle.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
 	}
 
 	if len(cSess.DynamicSplitExcludeDomains) > 0 {
@@ -164,7 +173,7 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 			ips := value.([]string)
 			for _, ip := range ips {
 				dst, _ = netlink.ParseIPNet(ip + "/32")
-				_ = netlink.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
+				_ = handle.RouteDel(&netlink.Route{LinkIndex: localInterfaceIndex, Dst: dst})
 			}
 
 			return true
@@ -176,7 +185,7 @@ func ResetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 			ips := value.([]string)
 			for _, ip := range ips {
 				dst, _ = netlink.ParseIPNet(ip + "/32")
-				_ = netlink.RouteDel(&netlink.Route{LinkIndex: ifaceIndex, Dst: dst})
+				_ = handle.RouteDel(&netlink.Route{LinkIndex: ifaceIndex, Dst: dst})
 			}
 
 			return true
@@ -241,12 +250,18 @@ func GetLocalInterface(ctx *vpncore.VPNContext) error {
 	return err
 }
 
-func delAllRoute(route *netlink.Route) {
-	for {
-		if err := netlink.RouteDel(route); err != nil {
-			return
+func delAllRoute(handle *netlink.Handle, filter *netlink.Route, filterMask uint64) error {
+	routes, err := handle.RouteListFiltered(netlink.FAMILY_V4, filter, filterMask)
+	if err != nil {
+		return err
+	}
+	for i := range routes {
+		route := routes[i]
+		if err := handle.RouteDel(&route); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func routingError(dst *net.IPNet, err error) error {
@@ -287,7 +302,6 @@ func setDNS(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 		dnsBuilder.WriteString("\n")
 	}
 
-	time.Sleep(2 * time.Second)
 	err := os.WriteFile(linuxResolvConfPath, []byte(dnsBuilder.String()), 0o644)
 	if err != nil {
 		base.Error("set DNS failed:", err)

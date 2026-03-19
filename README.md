@@ -11,6 +11,8 @@ Universal tunnel managment utility in pure Go. Inspired by netcat and rclone.
 - same `tuncat obscure` workflow for secret values
 - cert + password auth is mandatory
 
+When a config file contains plaintext `password` or `pfx_password`, `tuncat` now rewrites them to `obscured:...` automatically after a successful connection. CLI-provided secrets are not written back.
+
 ## Runtime Notes
 
 - Linux: root privileges and `/dev/net/tun`
@@ -47,6 +49,8 @@ dns_domains:
   - "example.internal"
   - "group.example.internal"
   - "external.example.internal"
+
+verify_url: "https://intranet.example.internal/health"
 ```
 
 Generate obscured values:
@@ -99,6 +103,8 @@ Legacy fields are still accepted:
 - `user_agent`
 - `server_cert`
 - `openconnect_path` (kept for compatibility; ignored by embedded runtime)
+
+`verify_url` is optional. When set, `tuncat` performs a post-connect DNS lookup and HTTP probe and logs the structured result. Probe failure is treated as a failed connection attempt.
 
 ## Development
 

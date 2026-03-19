@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -161,6 +163,7 @@ func TestNormalizeConfig(t *testing.T) {
 		Server:     "  vpn.example.com  ",
 		Username:   "  user  ",
 		PfxPath:    "  /tmp/user.pfx  ",
+		VerifyURL:  "  https://vpn.example.com/health  ",
 		DNSDomains: []string{" Corp.Example.com ", "", " .internal.example.com ", "corp.example.com"},
 	}
 
@@ -174,6 +177,9 @@ func TestNormalizeConfig(t *testing.T) {
 	}
 	if cfg.PfxPath != "/tmp/user.pfx" {
 		t.Fatalf("pfx_path not normalized: %q", cfg.PfxPath)
+	}
+	if cfg.VerifyURL != "https://vpn.example.com/health" {
+		t.Fatalf("verify_url not normalized: %q", cfg.VerifyURL)
 	}
 	if len(cfg.DNSDomains) != 2 {
 		t.Fatalf("dns_domains not normalized: %#v", cfg.DNSDomains)
@@ -195,6 +201,7 @@ func TestValidateConfig(t *testing.T) {
 		Username:    "user",
 		PfxPath:     pfx,
 		BaseMTU:     1200,
+		VerifyURL:   "https://vpn.example.com/health",
 		SplitRoutes: []string{"10.0.0.0/8"},
 		DNSDomains:  []string{"corp.example.com"},
 	}
@@ -211,6 +218,131 @@ func TestValidateConfig(t *testing.T) {
 
 	if errs := validateConfig(bad); len(errs) == 0 {
 		t.Fatal("expected validation errors")
+	}
+
+	bad.VerifyURL = "ftp://vpn.example.com/health"
+	if errs := validateConfig(bad); len(errs) == 0 {
+		t.Fatal("expected verify_url validation errors")
+	}
+}
+
+func TestVerifyEndpointSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	result := verifyEndpoint(srv.URL+"/health", nil)
+	if result.Error != "" {
+		t.Fatalf("verifyEndpoint returned error: %s", result.Error)
+	}
+	if result.Host == "" {
+		t.Fatal("verifyEndpoint returned empty host")
+	}
+	if !result.Resolved {
+		t.Fatal("verifyEndpoint did not report DNS resolution")
+	}
+	if len(result.Addresses) == 0 {
+		t.Fatal("verifyEndpoint returned no resolved addresses")
+	}
+	if result.HTTPStatus != http.StatusNoContent {
+		t.Fatalf("HTTP status = %d, want %d", result.HTTPStatus, http.StatusNoContent)
+	}
+	if !result.HTTPOK() {
+		t.Fatal("verifyEndpoint should report HTTP success")
+	}
+	if result.Duration <= 0 {
+		t.Fatalf("duration = %v, want > 0", result.Duration)
+	}
+}
+
+func TestVerifyEndpointInvalidURL(t *testing.T) {
+	result := verifyEndpoint("://bad", nil)
+	if result.Error == "" || !strings.Contains(result.Error, "invalid verify_url") {
+		t.Fatalf("unexpected error: %q", result.Error)
+	}
+}
+
+func TestVerifyEndpointUnsupportedScheme(t *testing.T) {
+	result := verifyEndpoint("ftp://vpn.example.com/health", nil)
+	if result.Error == "" || !strings.Contains(result.Error, "unsupported verify_url scheme") {
+		t.Fatalf("unexpected error: %q", result.Error)
+	}
+}
+
+func TestObscureConfigSecretsInFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	input := strings.Join([]string{
+		`server: "vpn.example.com/group"`,
+		`password: "plain-password"`,
+		`pfx_password: "plain-pfx-password"`,
+		`username: "user"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile error: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected config write-back to change plaintext secrets")
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(raw)
+	if strings.Contains(content, "plain-password") || strings.Contains(content, "plain-pfx-password") {
+		t.Fatalf("plaintext secrets remained in file:\n%s", content)
+	}
+	if !strings.Contains(content, `password: obscured:`) {
+		t.Fatalf("password was not obscured:\n%s", content)
+	}
+	if !strings.Contains(content, `pfx_password: obscured:`) {
+		t.Fatalf("pfx_password was not obscured:\n%s", content)
+	}
+}
+
+func TestObscureConfigSecretsInFileSkipsCLIOverrides(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	input := strings.Join([]string{
+		`server: "vpn.example.com/group"`,
+		`password: "plain-password"`,
+		`pfx_password: "plain-pfx-password"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{
+		"password":     true,
+		"pfx-password": true,
+	})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile error: %v", err)
+	}
+	if changed {
+		t.Fatal("expected CLI overrides to skip config write-back")
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(raw)
+	if !strings.Contains(content, `password: "plain-password"`) {
+		t.Fatalf("password should remain plaintext when overridden by CLI:\n%s", content)
+	}
+	if !strings.Contains(content, `pfx_password: "plain-pfx-password"`) {
+		t.Fatalf("pfx_password should remain plaintext when overridden by CLI:\n%s", content)
 	}
 }
 

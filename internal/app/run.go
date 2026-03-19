@@ -105,7 +105,18 @@ func Run() int {
 		return 1
 	}
 
-	exitCode, err := runVPNCore(cfg, pfxCreds, *flagVerbose)
+	onConnected := func() {
+		changed, err := obscureConfigSecretsInFile(cfgPath, setFlags)
+		if err != nil {
+			log.Printf("Warning: config write-back failed: %v", err)
+			return
+		}
+		if changed {
+			log.Printf("Updated config secrets in %s", cfgPath)
+		}
+	}
+
+	exitCode, err := runVPNCore(cfg, pfxCreds, *flagVerbose, onConnected)
 	if err != nil {
 		log.Print(err)
 		return 1

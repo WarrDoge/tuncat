@@ -18,7 +18,7 @@ import (
 	"sslcon/rpc"
 )
 
-func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool) (int, error) {
+func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected func()) (int, error) {
 	target, err := splitServerForVPNCore(cfg.Server)
 	if err != nil {
 		return 1, err
@@ -40,6 +40,40 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool) (int, error
 	log.Printf("Connecting to %s as %s...", target.Host, cfg.Username)
 	if err := rpc.Connect(vpnCtx); err != nil {
 		return 1, fmt.Errorf("error starting VPN core: %w", err)
+	}
+
+	if cfg.VerifyURL != "" {
+		dnsServers := []string(nil)
+		if vpnCtx.Session != nil && vpnCtx.Session.CSess != nil {
+			dnsServers = append(dnsServers, vpnCtx.Session.CSess.DNS...)
+		}
+		verification := verifyEndpoint(cfg.VerifyURL, dnsServers)
+		log.Printf(
+			"verify_url result: host=%s dns_servers=%v addresses=%v resolved=%t http_status=%d attempts=%d duration=%s error=%q",
+			verification.Host,
+			verification.DNSServers,
+			verification.Addresses,
+			verification.Resolved,
+			verification.HTTPStatus,
+			verification.Attempts,
+			verification.Duration,
+			verification.Error,
+		)
+		if verification.Error != "" || !verification.HTTPOK() {
+			rpc.DisConnect(vpnCtx)
+			select {
+			case <-vpnCtx.Session.CloseChan:
+			case <-time.After(gracefulTimeout):
+			}
+			if verification.Error != "" {
+				return 1, fmt.Errorf("verify_url failed: %s", verification.Error)
+			}
+			return 1, fmt.Errorf("verify_url failed with HTTP status %d", verification.HTTPStatus)
+		}
+	}
+
+	if onConnected != nil {
+		onConnected()
 	}
 	log.Println("VPN connected. Press Ctrl+C to disconnect.")
 
