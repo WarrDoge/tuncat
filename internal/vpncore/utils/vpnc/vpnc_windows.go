@@ -1,10 +1,13 @@
 package vpnc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/sys/windows"
@@ -25,6 +28,7 @@ const (
 	nrptManagedRuleNote   = "managed by tuncat"
 	nrptRegistryWriteMask = registry.QUERY_VALUE | registry.SET_VALUE | registry.CREATE_SUB_KEY | registry.ENUMERATE_SUB_KEYS | registry.WOW64_64KEY
 	nrptRegistryReadMask  = registry.QUERY_VALUE | registry.ENUMERATE_SUB_KEYS | registry.WOW64_64KEY
+	windowsRollbackFile   = "windows-network-state.json"
 )
 
 type RoutingState struct {
@@ -34,6 +38,11 @@ type RoutingState struct {
 	nextHopGateway     netip.Addr
 	previousDNSServers []netip.Addr
 	dnsStateCaptured   bool
+	staleRollbackClean bool
+}
+
+type rollbackState struct {
+	PreviousDNSServers []string `json:"previous_dns_servers,omitempty"`
 }
 
 func routingState(ctx *vpncore.VPNContext) *RoutingState {
@@ -76,6 +85,12 @@ func SetRoutes(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 	}
 	if state.localInterface == 0 || state.iface == 0 {
 		return fmt.Errorf("routing interfaces are not initialized")
+	}
+	if !state.staleRollbackClean {
+		if err := cleanupStaleRollback(state); err != nil {
+			base.Warn("stale Windows rollback cleanup failed:", err)
+		}
+		state.staleRollbackClean = true
 	}
 
 	dst, err := netip.ParsePrefix(cSess.ServerAddress + "/32")
@@ -292,6 +307,9 @@ func setDNS(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 		if current, err := state.iface.DNS(); err == nil {
 			state.previousDNSServers = append([]netip.Addr(nil), current...)
 			state.dnsStateCaptured = true
+			if err := persistRollbackState(state); err != nil {
+				base.Warn("persist Windows rollback state failed:", err)
+			}
 		}
 	}
 
@@ -323,6 +341,9 @@ func restoreDNS(ctx *vpncore.VPNContext) {
 		}
 		state.previousDNSServers = nil
 		state.dnsStateCaptured = false
+	}
+	if err := clearRollbackState(); err != nil {
+		base.Warn("clear Windows rollback state failed:", err)
 	}
 }
 
@@ -415,4 +436,89 @@ func nrptRuleName(domain string) string {
 
 	replacer := strings.NewReplacer(".", "-", "*", "star", "/", "-", "\\", "-", ":", "-")
 	return nrptRulePrefix + replacer.Replace(normalized)
+}
+
+func cleanupStaleRollback(state *RoutingState) error {
+	rollback, err := loadRollbackState()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	if err := clearOwnedNRPTRules(); err != nil {
+		return err
+	}
+
+	if state != nil && state.iface != 0 {
+		if err := state.iface.SetDNS(windows.AF_INET, parseRollbackServers(rollback.PreviousDNSServers), []string{}); err != nil {
+			return err
+		}
+	}
+
+	return clearRollbackState()
+}
+
+func persistRollbackState(state *RoutingState) error {
+	if state == nil {
+		return nil
+	}
+
+	rollback := rollbackState{
+		PreviousDNSServers: make([]string, 0, len(state.previousDNSServers)),
+	}
+	for _, server := range state.previousDNSServers {
+		rollback.PreviousDNSServers = append(rollback.PreviousDNSServers, server.String())
+	}
+
+	data, err := json.Marshal(rollback)
+	if err != nil {
+		return err
+	}
+
+	path := rollbackStatePath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0o600)
+}
+
+func loadRollbackState() (*rollbackState, error) {
+	data, err := os.ReadFile(rollbackStatePath())
+	if err != nil {
+		return nil, err
+	}
+
+	var rollback rollbackState
+	if err := json.Unmarshal(data, &rollback); err != nil {
+		return nil, err
+	}
+
+	return &rollback, nil
+}
+
+func clearRollbackState() error {
+	err := os.Remove(rollbackStatePath())
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func rollbackStatePath() string {
+	return filepath.Join(os.TempDir(), "tuncat", windowsRollbackFile)
+}
+
+func parseRollbackServers(values []string) []netip.Addr {
+	servers := make([]netip.Addr, 0, len(values))
+	for _, value := range values {
+		addr, err := netip.ParseAddr(value)
+		if err != nil {
+			continue
+		}
+		servers = append(servers, addr)
+	}
+	return servers
 }

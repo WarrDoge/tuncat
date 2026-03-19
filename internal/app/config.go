@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -62,6 +63,7 @@ func normalizeConfig(cfg *Config) {
 	cfg.Protocol = strings.TrimSpace(cfg.Protocol)
 	cfg.UserAgent = strings.TrimSpace(cfg.UserAgent)
 	cfg.ServerCert = strings.TrimSpace(cfg.ServerCert)
+	cfg.VerifyURL = strings.TrimSpace(cfg.VerifyURL)
 	cfg.RPCAddr = strings.TrimSpace(cfg.RPCAddr)
 	cfg.DebugLogPath = strings.TrimSpace(cfg.DebugLogPath)
 
@@ -92,6 +94,16 @@ func validateConfig(cfg *Config) []string {
 	for _, d := range cfg.DNSDomains {
 		if strings.ContainsAny(d, " \t\n") {
 			errs = append(errs, fmt.Sprintf("invalid dns_domain %q: whitespace not allowed", d))
+		}
+	}
+	if cfg.VerifyURL != "" {
+		u, err := url.Parse(cfg.VerifyURL)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("invalid verify_url %q: %v", cfg.VerifyURL, err))
+		} else if u.Hostname() == "" {
+			errs = append(errs, fmt.Sprintf("invalid verify_url %q: host is empty", cfg.VerifyURL))
+		} else if u.Scheme != "http" && u.Scheme != "https" {
+			errs = append(errs, fmt.Sprintf("invalid verify_url %q: scheme must be http or https", cfg.VerifyURL))
 		}
 	}
 	if cfg.RPCAddr != "" {

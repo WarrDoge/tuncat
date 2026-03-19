@@ -102,7 +102,13 @@ func SetupTunnel(ctx *vpncore.VPNContext) error {
 		return err
 	}
 
-	// Route and DNS setup stays synchronous to avoid racing data-plane startup.
+	if !cfg.NoDTLS && cSess.DTLSPort != "" {
+		// DTLS handshake depends only on negotiated CSTP session parameters and
+		// can overlap with local route and DNS setup.
+		go dtlsChannel(cSess, ctx.Session.PreMasterSecret)
+	}
+
+	// Route and DNS setup stays synchronous relative to the data plane startup.
 	err = vpnc.SetRoutes(ctx, cSess)
 	if err != nil {
 		authState.Conn.Close()
@@ -112,11 +118,6 @@ func SetupTunnel(ctx *vpncore.VPNContext) error {
 	base.Info("tls channel negotiation succeeded")
 
 	go tlsChannel(authState.Conn, authState.BufR, cSess, resp)
-
-	if !cfg.NoDTLS && cSess.DTLSPort != "" {
-		// DTLS setup runs in parallel after CSTP tunnel is up.
-		go dtlsChannel(cSess, ctx.Session.PreMasterSecret)
-	}
 
 	cSess.DPDTimer()
 	cSess.ReadDeadTimer()

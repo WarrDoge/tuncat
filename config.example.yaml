@@ -28,6 +28,10 @@ base_mtu: 1200
 # dns_domains:
 #   - "corp.example.com"
 
+# Optional post-connect connectivity probe.
+# DNS resolution and an HTTP GET are performed after tunnel bring-up.
+# verify_url: "https://intranet.example.com/health"
+
 # Optional RPC bind address for vpncore service mode (localhost only).
 # rpc_addr: "127.0.0.1:6210"
 
