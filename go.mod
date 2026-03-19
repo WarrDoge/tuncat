@@ -1,6 +1,6 @@
 module tuncat
 
-go 1.25.0
+go 1.26.1
 
 require (
 	github.com/apieasy/gson v0.2.3

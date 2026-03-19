@@ -54,9 +54,9 @@ func reveal(encoded string) (string, error) {
 }
 
 func readPassword(prompt string) (string, error) {
-	if term.IsTerminal(int(syscall.Stdin)) {
+	if term.IsTerminal(syscall.Stdin) {
 		fmt.Fprint(os.Stderr, prompt)
-		pw, err := term.ReadPassword(int(syscall.Stdin))
+		pw, err := term.ReadPassword(syscall.Stdin)
 		fmt.Fprintln(os.Stderr)
 		if err != nil {
 			return "", err

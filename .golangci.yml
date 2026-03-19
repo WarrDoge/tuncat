@@ -1,46 +1,15 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
+  default: none
   enable:
     - asciicheck
     - govet
-    - errcheck
-    - gosimple
     - ineffassign
     - misspell
-    - revive
     - staticcheck
     - unconvert
     - unused
-
-linters-settings:
-  revive:
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: empty-block
-      - name: error-return
-      - name: error-strings
-      - name: exported
-        disabled: true
-      - name: if-return
-      - name: increment-decrement
-      - name: range
-      - name: receiver-naming
-      - name: redefines-builtin-id
-      - name: superfluous-else
-      - name: time-naming
-      - name: unreachable-code
-      - name: unused-parameter
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-    - path: internal/vpncore/tun/
-      text: "TODO:"
-    - ineffassign

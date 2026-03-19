@@ -3,7 +3,7 @@ package app
 import "time"
 
 const (
-	Version = "2.0.0"
+	Version = "0.1.1"
 
 	obscureKey    = "\x9c\x93\x5b\x48\x73\x0a\x55\x4d\x6b\xe0\x76\x3f\x1a\xc4\xd8\x2e"
 	obscurePrefix = "obscured:"

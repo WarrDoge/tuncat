@@ -1,0 +1,15 @@
+pre-commit:
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: aqua exec -- gofmt -w {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    lint:
+      run: aqua exec -- act -j lint
+    test:
+      run: aqua exec -- act -j test
+    secrets:
+      run: aqua exec -- act -j secrets

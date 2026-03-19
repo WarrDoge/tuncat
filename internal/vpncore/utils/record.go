@@ -54,11 +54,13 @@ func (r *Record) Write(content string, prepend bool) error {
 	defer f.Close()
 
 	writer := bufio.NewWriter(f)
-	writer.WriteString(fmt.Sprintf("%s\n", content))
+	if _, err = fmt.Fprintf(writer, "%s\n", content); err != nil {
+		return err
+	}
 
 	if prepend {
 		for _, line := range r.Contents {
-			_, err = writer.WriteString(fmt.Sprintf("%s\n", line))
+			_, err = fmt.Fprintf(writer, "%s\n", line)
 			if err != nil {
 				return err
 			}

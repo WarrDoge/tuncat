@@ -290,7 +290,7 @@ func setDNS(ctx *vpncore.VPNContext, cSess *session.ConnSession) {
 
 	var dnsBuilder strings.Builder
 	for _, dns := range cSess.DNS {
-		dnsBuilder.WriteString(fmt.Sprintf("nameserver %s\n", dns))
+		_, _ = fmt.Fprintf(&dnsBuilder, "nameserver %s\n", dns)
 	}
 	domains := []string{}
 	if ctx != nil && ctx.Cfg != nil {
