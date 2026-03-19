@@ -16,12 +16,13 @@ import (
 
 func setupTun(ctx *vpncore.VPNContext, cSess *session.ConnSession) error {
 	offset := 0
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		cSess.TunName = "Tuncat"
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		cSess.TunName = "utun"
 		offset = 4
-	} else {
+	default:
 		cSess.TunName = "tuncat"
 	}
 	dev, err := tun.CreateTUN(cSess.TunName, cSess.MTU)

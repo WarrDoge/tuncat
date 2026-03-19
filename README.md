@@ -95,7 +95,7 @@ Usage of tuncat:
 
 ## Config Example
 
-See `config.example.yaml`.
+See `config.example.yml`.
 
 Legacy fields are still accepted:
 
@@ -117,9 +117,21 @@ aqua i
 This installs the repo-pinned Go toolchain from `go.mod` plus:
 
 - `act`
+- `lefthook`
 - `gitleaks`
 - `actionlint`
 - `golangci-lint`
+
+Install local git hooks once per clone:
+
+```sh
+aqua exec -- lefthook install
+```
+
+The local hooks use the same task surface as CI:
+
+- `pre-commit`: formats staged Go files with `gofmt`
+- `pre-push`: runs `act workflow_dispatch -j lint`, `act workflow_dispatch -j test`, and `act workflow_dispatch -j secrets`
 
 GitHub Actions is the task surface now. Run jobs locally with `act`:
 
@@ -133,3 +145,4 @@ act -j cross-build
 ```
 
 `act` requires Docker. The repo-local `.actrc` provides the default workflow directory and container architecture.
+For repository secret scans, the `secrets` job runs `gitleaks git .`, which avoids false positives from ignored local files such as personal configs or certificates.
