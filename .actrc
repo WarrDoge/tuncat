@@ -1,3 +1,5 @@
 --container-architecture=linux/amd64
 --pull=false
 --workflows=.github/workflows
+-P
+ubuntu-latest=catthehacker/ubuntu:act-latest

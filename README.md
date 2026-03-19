@@ -95,7 +95,7 @@ Usage of tuncat:
 
 ## Config Example
 
-See `config.example.yaml`.
+See `config.example.yml`.
 
 Legacy fields are still accepted:
 
@@ -131,7 +131,7 @@ aqua exec -- lefthook install
 The local hooks use the same task surface as CI:
 
 - `pre-commit`: formats staged Go files with `gofmt`
-- `pre-push`: runs `act -j lint`, `act -j test`, and `act -j secrets`
+- `pre-push`: runs `act workflow_dispatch -j lint`, `act workflow_dispatch -j test`, and `act workflow_dispatch -j secrets`
 
 GitHub Actions is the task surface now. Run jobs locally with `act`:
 

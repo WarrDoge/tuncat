@@ -8,8 +8,8 @@ pre-commit:
 pre-push:
   commands:
     lint:
-      run: aqua exec -- act -j lint
+      run: aqua exec -- act workflow_dispatch -j lint
     test:
-      run: aqua exec -- act -j test
+      run: aqua exec -- act workflow_dispatch -j test
     secrets:
-      run: aqua exec -- act -j secrets
+      run: aqua exec -- act workflow_dispatch -j secrets
