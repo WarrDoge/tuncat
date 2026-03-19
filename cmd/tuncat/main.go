@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"tuncat/internal/app"
+	"tuncat/internal/cli"
 )
 
 func main() {
@@ -12,11 +12,11 @@ func main() {
 	log.SetPrefix("tuncat: ")
 
 	if len(os.Args) > 1 && os.Args[1] == "obscure" {
-		if err := app.RunObscure(); err != nil {
+		if err := cli.RunObscure(); err != nil {
 			log.Fatal(err)
 		}
 		return
 	}
 
-	os.Exit(app.Run())
+	os.Exit(cli.Run())
 }

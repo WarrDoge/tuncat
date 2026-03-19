@@ -146,10 +146,20 @@ act -j cross-build
 
 `act` requires Docker. The repo-local `.actrc` provides the default workflow directory and container architecture.
 
+Build artifacts are written to `dist/` and named by target platform:
+
+```text
+dist/tuncat_linux_amd64
+dist/tuncat_linux_arm64
+dist/tuncat_darwin_amd64
+dist/tuncat_darwin_arm64
+dist/tuncat_windows_amd64.exe
+```
+
 For a manual smoke test on a machine with a real local config, run:
 
 ```sh
-sudo ./tuncat -config ./config.yml -verbose
+sudo ./dist/tuncat_linux_amd64 -config ./config.yml -verbose
 ```
 
 If your local file is named `config.yaml` instead, pass that path instead. When `verify_url` is configured, this also exercises the post-connect connectivity probe.

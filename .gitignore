@@ -5,4 +5,5 @@ config.yaml
 *.crt
 input
 /tuncat
+/dist/
 *.tar.gz

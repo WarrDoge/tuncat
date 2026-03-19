@@ -17,12 +17,16 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    env:
+      GOOS: linux
+      GOARCH: amd64
     steps:
       - uses: actions/checkout@v5
       - uses: aquaproj/aqua-installer@11dd79b4e498d471a9385aa9fb7f62bb5f52a73c # v4.0.4
         with:
           aqua_version: v2.43.1
-      - run: aqua exec -- go build ${GOFLAGS} -o tuncat ./cmd/tuncat
+      - run: mkdir -p dist
+      - run: aqua exec -- go build ${GOFLAGS} -o "dist/tuncat_${GOOS}_${GOARCH}" ./cmd/tuncat
 
   test:
     name: test
@@ -65,20 +69,27 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
+            ext: ""
           - goos: linux
             goarch: arm64
+            ext: ""
           - goos: darwin
             goarch: amd64
+            ext: ""
           - goos: darwin
             goarch: arm64
+            ext: ""
           - goos: windows
             goarch: amd64
+            ext: ".exe"
     steps:
       - uses: actions/checkout@v5
       - uses: aquaproj/aqua-installer@11dd79b4e498d471a9385aa9fb7f62bb5f52a73c # v4.0.4
         with:
           aqua_version: v2.43.1
-      - run: aqua exec -- go build ./...
+      - run: mkdir -p dist
+      - run: aqua exec -- go build ${GOFLAGS} -o "dist/tuncat_${GOOS}_${GOARCH}${EXT}" ./cmd/tuncat
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          EXT: ${{ matrix.ext }}
