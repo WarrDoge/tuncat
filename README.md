@@ -108,9 +108,28 @@ Legacy fields are still accepted:
 
 ## Development
 
+Install the pinned local toolchain with `aqua`:
+
 ```sh
-make build
-make test
-make cross-build
-make clean
+aqua i
 ```
+
+This installs the repo-pinned Go toolchain from `go.mod` plus:
+
+- `act`
+- `gitleaks`
+- `actionlint`
+- `golangci-lint`
+
+GitHub Actions is the task surface now. Run jobs locally with `act`:
+
+```sh
+act -l
+act -j build
+act -j test
+act -j lint
+act -j secrets
+act -j cross-build
+```
+
+`act` requires Docker. The repo-local `.actrc` provides the default workflow directory and container architecture.
