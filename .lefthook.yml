@@ -4,6 +4,8 @@ pre-commit:
       glob: "*.go"
       run: aqua exec -- gofmt -w {staged_files}
       stage_fixed: true
+    cross-build:
+      run: aqua exec -- act workflow_dispatch -j cross-build
 
 pre-push:
   commands:

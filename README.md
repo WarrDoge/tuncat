@@ -130,7 +130,7 @@ aqua exec -- lefthook install
 
 The local hooks use the same task surface as CI:
 
-- `pre-commit`: formats staged Go files with `gofmt`
+- `pre-commit`: formats staged Go files with `gofmt` and runs `act workflow_dispatch -j cross-build`
 - `pre-push`: runs `act workflow_dispatch -j lint`, `act workflow_dispatch -j test`, and `act workflow_dispatch -j secrets`
 
 GitHub Actions is the task surface now. Run jobs locally with `act`:
@@ -145,4 +145,13 @@ act -j cross-build
 ```
 
 `act` requires Docker. The repo-local `.actrc` provides the default workflow directory and container architecture.
+
+For a manual smoke test on a machine with a real local config, run:
+
+```sh
+sudo ./tuncat -config ./config.yml -verbose
+```
+
+If your local file is named `config.yaml` instead, pass that path instead. When `verify_url` is configured, this also exercises the post-connect connectivity probe.
+
 For repository secret scans, the `secrets` job runs `gitleaks git .`, which avoids false positives from ignored local files such as personal configs or certificates.
