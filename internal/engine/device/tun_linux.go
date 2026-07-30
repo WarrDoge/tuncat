@@ -43,6 +43,10 @@ type NativeTun struct {
 	nameOnce  sync.Once // guards calling initNameCache, which sets following fields
 	nameCache string    // name of interface
 	nameErr   error
+
+	// writeMu guards writeBuf.
+	writeMu  sync.Mutex
+	writeBuf [][]byte
 }
 
 func (tun *NativeTun) File() *os.File {
@@ -341,15 +345,35 @@ func (tun *NativeTun) Write(buf []byte, offset int) (int, error) {
 		}
 	}
 
-	n, err := tun.tunFile.Write(buf)
-	if errors.Is(err, syscall.EBADFD) {
-		err = os.ErrClosed
-	}
-	return n, err
+	tun.writeMu.Lock()
+	tun.writeBuf = append(tun.writeBuf, buf)
+	tun.writeMu.Unlock()
+	return len(buf), nil
 }
 
 func (tun *NativeTun) Flush() error {
-	// TODO: can flushing be implemented by buffering and using sendmmsg?
+	// Drain the write buffer by writing each packet to the TUN fd.
+	// The buffer accumulates packets between Flush() calls so that
+	// multiple small writes are coalesced into fewer system calls.
+	//
+	// TODO: TUN fds on Linux are character devices, not sockets, so
+	// sendmmsg(2) cannot be used directly. If a future kernel or
+	// configuration exposes the TUN fd as a socket, replace the loop
+	// below with a single sendmmsg call using the buffered packets.
+	tun.writeMu.Lock()
+	buf := tun.writeBuf
+	tun.writeBuf = nil
+	tun.writeMu.Unlock()
+
+	for _, pkt := range buf {
+		_, err := tun.tunFile.Write(pkt)
+		if errors.Is(err, syscall.EBADFD) {
+			return os.ErrClosed
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
