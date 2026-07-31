@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -37,9 +38,42 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigChan)
 
+	// Start the health socket before connecting so the endpoint is
+	// available during the connecting phase.
+	healthCtx, healthCancel := context.WithCancel(context.Background())
+	defer healthCancel()
+
+	healthTracker := NewHealthTracker()
+	healthTracker.SetConnecting()
+
+	if cfg.StatusSocket != "" {
+		go func() {
+			err := ServeHealthSocket(healthCtx, cfg.StatusSocket, healthTracker)
+			if err != nil {
+				logListenerError(err)
+			}
+		}()
+		// Give the listener a moment to set up so we surface bind
+		// failures quickly.
+		time.Sleep(10 * time.Millisecond)
+		if _, statErr := os.Stat(cfg.StatusSocket); statErr != nil {
+			return 1, fmt.Errorf("health socket %s did not start: %w", cfg.StatusSocket, statErr)
+		}
+	}
+
 	log.Printf("Connecting to %s as %s...", target.Host, cfg.Username)
 	if err := rpc.Connect(vpnCtx); err != nil {
+		healthTracker.SetDisconnected()
 		return 1, fmt.Errorf("error starting VPN core: %w", err)
+	}
+
+	// Populate session info now that we are connected.
+	if vpnCtx.Session != nil && vpnCtx.Session.CSess != nil {
+		healthTracker.SetConnected(
+			vpnCtx.Session.CSess.ServerAddress,
+			vpnCtx.Session.CSess.LocalAddress,
+			vpnCtx.Session.CSess.VPNAddress,
+		)
 	}
 
 	if cfg.VerifyURL != "" {
@@ -65,6 +99,7 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 			case <-vpnCtx.Session.CloseChan:
 			case <-time.After(gracefulTimeout):
 			}
+			healthTracker.SetDisconnected()
 			if verification.Error != "" {
 				return 1, fmt.Errorf("verify_url failed: %s", verification.Error)
 			}
@@ -77,6 +112,11 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 	}
 	log.Println("VPN connected. Press Ctrl+C to disconnect.")
 
+	// Periodically poll the session byte counters.
+	statDone := make(chan struct{})
+	defer close(statDone)
+	go pollSessionStats(healthTracker, vpnCtx, statDone)
+
 	doneChan := vpnCtx.Session.CloseChan
 	if doneChan == nil {
 		return 1, fmt.Errorf("VPN core did not expose a session channel")
@@ -84,6 +124,7 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 
 	select {
 	case <-doneChan:
+		healthTracker.SetDisconnected()
 		if vpnCtx.Session.ActiveClose {
 			log.Println("VPN disconnected.")
 			return 0, nil
@@ -98,7 +139,25 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 		case <-time.After(gracefulTimeout):
 			return exitSignal, fmt.Errorf("timeout waiting for VPN core disconnect")
 		}
+		healthTracker.SetDisconnected()
 		return exitSignal, nil
+	}
+}
+
+// pollSessionStats reads byte counters from the VPN session at a fixed
+// interval so the health endpoint always shows recent values.
+func pollSessionStats(ht *HealthTracker, vpnCtx *lib.VPNContext, done <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if vpnCtx != nil && vpnCtx.Session != nil && vpnCtx.Session.CSess != nil && vpnCtx.Session.CSess.Stat != nil {
+				ht.SetBytes(vpnCtx.Session.CSess.Stat.BytesSent, vpnCtx.Session.CSess.Stat.BytesReceived)
+			}
+		case <-done:
+			return
+		}
 	}
 }
 

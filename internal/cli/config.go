@@ -66,6 +66,7 @@ func normalizeConfig(cfg *Config) {
 	cfg.VerifyURL = strings.TrimSpace(cfg.VerifyURL)
 	cfg.RPCAddr = strings.TrimSpace(cfg.RPCAddr)
 	cfg.DebugLogPath = strings.TrimSpace(cfg.DebugLogPath)
+	cfg.StatusSocket = strings.TrimSpace(cfg.StatusSocket)
 
 	cfg.DNSDomains = network.NormalizeDNSDomains(cfg.DNSDomains)
 }

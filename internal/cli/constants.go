@@ -27,6 +27,8 @@ type Config struct {
 	RPCAddr      string   `yaml:"rpc_addr"`
 	DebugLogPath string   `yaml:"debug_log_path"`
 
+	StatusSocket string `yaml:"status_socket"`
+
 	ServerCert string `yaml:"server_cert"`
 }
 
