@@ -58,12 +58,18 @@ func verifyEndpoint(urlStr string, dnsServers []string) EndpointVerification {
 	}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{
-		Timeout:   verifyRetryInterval,
 		Transport: transport,
 	}
 
 	deadline := time.Now().Add(verifyTimeout)
 	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			result.Duration = time.Since(start)
+			return result
+		}
+		client.Timeout = remaining
+
 		result.Attempts++
 		addresses, resolveErr := resolveHost(host, servers)
 		if resolveErr == nil {
@@ -98,7 +104,12 @@ func normalizeDNSServers(dnsServers []string) []string {
 		if server == "" {
 			continue
 		}
-		if net.ParseIP(server) == nil {
+		// Accept bare IPs ("192.168.1.1") and port-bearing IPs ("192.168.1.1:5353").
+		host := server
+		if h, _, err := net.SplitHostPort(server); err == nil {
+			host = h
+		}
+		if net.ParseIP(host) == nil {
 			continue
 		}
 		if _, ok := seen[server]; ok {
@@ -119,11 +130,16 @@ func resolveHost(host string, dnsServers []string) ([]string, error) {
 
 	var lastErr error
 	for _, server := range dnsServers {
+		addr := server
+		if _, _, err := net.SplitHostPort(server); err != nil {
+			// No port — append default DNS port.
+			addr = net.JoinHostPort(server, "53")
+		}
 		resolver := &net.Resolver{
 			PreferGo: true,
 			Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
 				dialer := &net.Dialer{Timeout: verifyRetryInterval}
-				return dialer.DialContext(ctx, "udp", net.JoinHostPort(server, "53"))
+				return dialer.DialContext(ctx, "udp", addr)
 			},
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), verifyRetryInterval)
