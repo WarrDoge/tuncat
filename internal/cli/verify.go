@@ -47,7 +47,7 @@ func verifyEndpoint(urlStr string, dnsServers []string) EndpointVerification {
 		return EndpointVerification{Error: "verify_url host is empty"}
 	}
 
-	servers := normalizeDNSServers(dnsServers)
+	servers := NormalizeDNSServers(dnsServers)
 	result := EndpointVerification{
 		Host:       host,
 		DNSServers: append([]string(nil), servers...),
@@ -65,12 +65,12 @@ func verifyEndpoint(urlStr string, dnsServers []string) EndpointVerification {
 	deadline := time.Now().Add(verifyTimeout)
 	for {
 		result.Attempts++
-		addresses, resolveErr := resolveHost(host, servers)
+		addresses, resolveErr := ResolveHost(host, servers)
 		if resolveErr == nil {
 			result.Addresses = addresses
 			result.Resolved = true
 
-			status, httpErr := probeHTTP(client, uri, host, addresses[0])
+			status, httpErr := ProbeHTTP(client, uri, host, addresses[0])
 			result.HTTPStatus = status
 			if httpErr == nil {
 				result.Error = ""
@@ -90,7 +90,7 @@ func verifyEndpoint(urlStr string, dnsServers []string) EndpointVerification {
 	}
 }
 
-func normalizeDNSServers(dnsServers []string) []string {
+func NormalizeDNSServers(dnsServers []string) []string {
 	normalized := make([]string, 0, len(dnsServers))
 	seen := map[string]struct{}{}
 	for _, server := range dnsServers {
@@ -110,7 +110,7 @@ func normalizeDNSServers(dnsServers []string) []string {
 	return normalized
 }
 
-func resolveHost(host string, dnsServers []string) ([]string, error) {
+func ResolveHost(host string, dnsServers []string) ([]string, error) {
 	if len(dnsServers) == 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), verifyRetryInterval)
 		defer cancel()
@@ -140,9 +140,9 @@ func resolveHost(host string, dnsServers []string) ([]string, error) {
 	return nil, lastErr
 }
 
-func probeHTTP(client *http.Client, uri *url.URL, host, address string) (int, error) {
+func ProbeHTTP(client *http.Client, uri *url.URL, host, address string) (int, error) {
 	target := *uri
-	target.Host = net.JoinHostPort(address, portForURI(uri))
+	target.Host = net.JoinHostPort(address, PortForURI(uri))
 
 	req, err := http.NewRequest(http.MethodGet, target.String(), nil)
 	if err != nil {
@@ -160,7 +160,7 @@ func probeHTTP(client *http.Client, uri *url.URL, host, address string) (int, er
 	return resp.StatusCode, nil
 }
 
-func portForURI(uri *url.URL) string {
+func PortForURI(uri *url.URL) string {
 	if port := uri.Port(); port != "" {
 		return port
 	}
