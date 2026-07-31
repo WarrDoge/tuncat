@@ -21,6 +21,10 @@ import (
 
 const utunControlName = "com.apple.net.utun_control"
 
+// EBADFD is not defined on Darwin; the constant value 77
+// matches the Linux definition for "file descriptor in bad state".
+const errBadFD = syscall.Errno(77)
+
 type NativeTun struct {
 	name        string
 	tunFile     *os.File
@@ -28,6 +32,10 @@ type NativeTun struct {
 	errors      chan error
 	routeSocket int
 	closeOnce   sync.Once
+
+	// writeMu guards writeBuf.
+	writeMu  sync.Mutex
+	writeBuf [][]byte
 }
 
 func retryInterfaceByIndex(index int) (iface *net.Interface, err error) {
@@ -249,13 +257,30 @@ func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
 		buff[3] = unix.AF_INET
 	}
 
-	// write
-
-	return tun.tunFile.Write(buff)
+	tun.writeMu.Lock()
+	tun.writeBuf = append(tun.writeBuf, buff)
+	tun.writeMu.Unlock()
+	return len(buff), nil
 }
 
 func (tun *NativeTun) Flush() error {
-	// TODO: can flushing be implemented by buffering and using sendmmsg?
+	// Drain the write buffer by writing each packet to the TUN fd.
+	// The buffer accumulates packets between Flush() calls so that
+	// multiple small writes are coalesced into fewer system calls.
+	tun.writeMu.Lock()
+	buf := tun.writeBuf
+	tun.writeBuf = nil
+	tun.writeMu.Unlock()
+
+	for _, pkt := range buf {
+		_, err := tun.tunFile.Write(pkt)
+		if errors.Is(err, errBadFD) {
+			return os.ErrClosed
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
