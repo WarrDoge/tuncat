@@ -139,7 +139,6 @@ func applyVPNCoreProfile(vpnCtx *lib.VPNContext, cfg *Config, target serverTarge
 	vpnCtx.Profile.Password = cfg.Password
 	vpnCtx.Profile.Group = target.Group
 	vpnCtx.Profile.BasePath = target.BasePath
-	vpnCtx.Profile.SecretKey = ""
 	vpnCtx.Profile.Initialized = false
 }
 

@@ -65,7 +65,7 @@ func Run() int {
 	if len(configErrs) > 0 {
 		return 1
 	}
-	preflightErrs := preflightChecks(cfg)
+	preflightErrs := preflightChecks()
 	for _, e := range preflightErrs {
 		log.Print(e)
 	}

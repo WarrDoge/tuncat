@@ -123,7 +123,7 @@ func validateConfig(cfg *Config) []string {
 	return errs
 }
 
-func preflightChecks(_ *Config) []string {
+func preflightChecks() []string {
 	var errs []string
 
 	switch runtime.GOOS {
