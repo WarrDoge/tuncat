@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"sync"
 )
 
 func Run() int {
@@ -105,15 +106,18 @@ func Run() int {
 		return 1
 	}
 
+	var onConnectedOnce sync.Once
 	onConnected := func() {
-		changed, err := obscureConfigSecretsInFile(cfgPath, setFlags)
-		if err != nil {
-			log.Printf("Warning: config write-back failed: %v", err)
-			return
-		}
-		if changed {
-			log.Printf("Updated config secrets in %s", cfgPath)
-		}
+		onConnectedOnce.Do(func() {
+			changed, err := obscureConfigSecretsInFile(cfgPath, setFlags)
+			if err != nil {
+				log.Printf("Warning: config write-back failed: %v", err)
+				return
+			}
+			if changed {
+				log.Printf("Updated config secrets in %s", cfgPath)
+			}
+		})
 	}
 
 	exitCode, err := runVPNCore(cfg, pfxCreds, *flagVerbose, onConnected)

@@ -1,6 +1,9 @@
 package cli
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	Version = "0.2.1"
@@ -10,6 +13,8 @@ const (
 
 	gracefulTimeout = 5 * time.Second
 	exitSignal      = 130
+
+	defaultRetryBackoff = 5 * time.Second
 )
 
 type Config struct {
@@ -28,6 +33,9 @@ type Config struct {
 	DebugLogPath string   `yaml:"debug_log_path"`
 
 	ServerCert string `yaml:"server_cert"`
+
+	MaxRetries   int    `yaml:"max_retries"`
+	RetryBackoff string `yaml:"retry_backoff"`
 }
 
 func defaults() *Config {
@@ -35,5 +43,22 @@ func defaults() *Config {
 		Protocol:  "anyconnect",
 		UserAgent: "AnyConnect",
 		BaseMTU:   1200,
+
+		MaxRetries:   -1,   // infinite by default
+		RetryBackoff: "5s", // 5 second default backoff
 	}
+}
+
+func parseRetryBackoff(s string) (time.Duration, error) {
+	if s == "" {
+		return defaultRetryBackoff, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("cannot parse %q: %w", s, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("retry_backoff must be positive, got %s", d)
+	}
+	return d, nil
 }

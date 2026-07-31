@@ -19,6 +19,47 @@ import (
 )
 
 func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected func()) (int, error) {
+	backoff, err := parseRetryBackoff(cfg.RetryBackoff)
+	if err != nil {
+		return 1, fmt.Errorf("invalid retry_backoff: %w", err)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
+
+	attempt := 0
+	for {
+		attempt++
+
+		code, err := connectOnce(cfg, pfxCreds, verbose, onConnected, sigChan)
+		if err != nil {
+			return code, err
+		}
+
+		// Clean exit (user signal or active close) — don't retry.
+		if code == exitSignal || code == 0 {
+			return code, nil
+		}
+
+		// Peer disconnect (code == 1). Decide whether to retry.
+		if cfg.MaxRetries >= 0 && attempt > cfg.MaxRetries {
+			return 1, fmt.Errorf("max retries (%d) reached, last disconnect", cfg.MaxRetries)
+		}
+
+		log.Printf("Reconnecting in %v (attempt %d)...", backoff, attempt)
+
+		// Wait for backoff or interrupt.
+		select {
+		case <-time.After(backoff):
+		case sig := <-sigChan:
+			log.Printf("Received %v during reconnect wait, exiting.", sig)
+			return exitSignal, nil
+		}
+	}
+}
+
+func connectOnce(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected func(), sigChan chan os.Signal) (int, error) {
 	target, err := splitServerForVPNCore(cfg.Server)
 	if err != nil {
 		return 1, err
@@ -32,10 +73,6 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 	applyVPNCoreProfile(vpnCtx, cfg, target)
 	auth.SetTLSCredentials(vpnCtx, pfxCreds.Certificate, pfxCreds.RootCAs)
 	defer auth.ClearTLSCredentials(vpnCtx)
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(sigChan)
 
 	log.Printf("Connecting to %s as %s...", target.Host, cfg.Username)
 	if err := rpc.Connect(vpnCtx); err != nil {
@@ -96,7 +133,6 @@ func runVPNCore(cfg *Config, pfxCreds *PFXCredentials, verbose bool, onConnected
 		select {
 		case <-doneChan:
 		case <-time.After(gracefulTimeout):
-			return exitSignal, fmt.Errorf("timeout waiting for VPN core disconnect")
 		}
 		return exitSignal, nil
 	}
