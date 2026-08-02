@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/binary"
+	"io"
 	"net/http"
 	"time"
 
@@ -36,16 +37,37 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 		}
 
 		pl := getPayloadBuffer()
-		bytesReceived, err = bufR.Read(pl.Data)
+
+		// Read 8-byte CSTP header.  io.ReadFull guarantees the full header
+		// is present so byte 6 / bytes 4-6 are never stale from a prior frame.
+		_, err = io.ReadFull(bufR, pl.Data[:8])
 		if err != nil {
-			engineconfig.Error("tls server to payloadIn error:", err)
+			engineconfig.Error("tls read cstp header error:", err)
+			putPayloadBuffer(pl)
 			return
 		}
+
+		// Validate payload length — uint16 off the wire, cap against fixed pool buffer.
+		dataLen = binary.BigEndian.Uint16(pl.Data[4:6])
+		if int(dataLen) > BufferSize-8 {
+			engineconfig.Error("tls frame payload too large:", dataLen)
+			putPayloadBuffer(pl)
+			return
+		}
+
+		// Read the exact payload that follows the header.
+		_, err = io.ReadFull(bufR, pl.Data[8:8+dataLen])
+		if err != nil {
+			engineconfig.Error("tls read cstp payload error:", err)
+			putPayloadBuffer(pl)
+			return
+		}
+
+		bytesReceived = 8 + int(dataLen)
 
 		// CSTP framing puts packet type at byte 6.
 		switch pl.Data[6] {
 		case protocol.PayloadData:
-			dataLen = binary.BigEndian.Uint16(pl.Data[4:6])
 			copy(pl.Data, pl.Data[8:8+dataLen])
 			pl.Data = pl.Data[:dataLen]
 
