@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/binary"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,6 +12,9 @@ import (
 	"github.com/WarrDoge/tuncat/internal/engine/protocol"
 	enginesession "github.com/WarrDoge/tuncat/internal/engine/session"
 )
+
+// minHeaderLen is the CSTP header size: 4 magic bytes + 2 length + 1 type + 1 reserved.
+const minHeaderLen = 8
 
 func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSession, resp *http.Response) {
 	defer func() {
@@ -42,10 +46,29 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 			return
 		}
 
+		// Guard against partial TLS records that don't contain a full CSTP header.
+		if bytesReceived < minHeaderLen {
+			engineconfig.Error(fmt.Sprintf("tls short read: got %d bytes, need at least %d for CSTP header", bytesReceived, minHeaderLen))
+			return
+		}
+
 		// CSTP framing puts packet type at byte 6.
 		switch pl.Data[6] {
 		case protocol.PayloadData:
 			dataLen = binary.BigEndian.Uint16(pl.Data[4:6])
+
+			// Validate declared payload length against buffer capacity.
+			maxDataLen := BufferSize - minHeaderLen
+			if dataLen > uint16(maxDataLen) {
+				engineconfig.Error(fmt.Sprintf("tls oversized frame: declared data length %d exceeds max %d", dataLen, maxDataLen))
+				return
+			}
+			// Guard against partial reads where the frame body was split across TLS records.
+			if bytesReceived < minHeaderLen+int(dataLen) {
+				engineconfig.Error(fmt.Sprintf("tls partial frame: got %d bytes, need %d for frame body", bytesReceived, minHeaderLen+int(dataLen)))
+				return
+			}
+
 			copy(pl.Data, pl.Data[8:8+dataLen])
 			pl.Data = pl.Data[:dataLen]
 
