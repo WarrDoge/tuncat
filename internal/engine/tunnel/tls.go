@@ -41,6 +41,10 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 			engineconfig.Error("tls server to payloadIn error:", err)
 			return
 		}
+		if bytesReceived < 8 {
+			engineconfig.Error("tls short CSTP header: got", bytesReceived, "bytes, want >= 8")
+			return
+		}
 
 		// CSTP framing puts packet type at byte 6.
 		switch pl.Data[6] {
