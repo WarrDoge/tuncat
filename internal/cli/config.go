@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -85,6 +86,14 @@ func validateConfig(cfg *Config) []string {
 	}
 	if cfg.BaseMTU < 576 || cfg.BaseMTU > 20000 {
 		errs = append(errs, fmt.Sprintf("base_mtu out of range (%d); expected 576..20000", cfg.BaseMTU))
+	}
+	if cfg.Protocol != "" && !acceptedProtocols[cfg.Protocol] {
+		accepted := make([]string, 0, len(acceptedProtocols))
+		for p := range acceptedProtocols {
+			accepted = append(accepted, p)
+		}
+		sort.Strings(accepted)
+		errs = append(errs, fmt.Sprintf("unsupported protocol %q; accepted: %v", cfg.Protocol, accepted))
 	}
 	for _, r := range cfg.SplitRoutes {
 		if _, _, err := parseSplitRoute(r); err != nil {

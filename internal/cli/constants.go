@@ -12,6 +12,10 @@ const (
 	exitSignal      = 130
 )
 
+var acceptedProtocols = map[string]bool{
+	"anyconnect": true,
+}
+
 type Config struct {
 	Server       string   `yaml:"server"`
 	Username     string   `yaml:"username"`
