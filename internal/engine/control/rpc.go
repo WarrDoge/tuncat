@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/sourcegraph/jsonrpc2"
@@ -28,6 +29,12 @@ const (
 	INTERFACE
 	ABORT
 	STAT
+)
+
+const (
+	rpcReadHeaderTimeout = 10 * time.Second
+	rpcReadTimeout       = 30 * time.Second
+	rpcIdleTimeout       = 60 * time.Second
 )
 
 type RPCServer struct {
@@ -71,8 +78,11 @@ func (server *RPCServer) Setup() error {
 	mux.HandleFunc("/rpc", server.rpc)
 
 	server.httpServer = &http.Server{
-		Addr:    addr,
-		Handler: mux,
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: rpcReadHeaderTimeout,
+		ReadTimeout:       rpcReadTimeout,
+		IdleTimeout:       rpcIdleTimeout,
 	}
 
 	go func() {
