@@ -200,6 +200,7 @@ func TestValidateConfig(t *testing.T) {
 		Server:      "vpn.example.com",
 		Username:    "user",
 		PfxPath:     pfx,
+		Protocol:    ProtocolAnyConnect,
 		BaseMTU:     1200,
 		VerifyURL:   "https://vpn.example.com/health",
 		SplitRoutes: []string{"10.0.0.0/8"},

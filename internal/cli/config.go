@@ -83,6 +83,9 @@ func validateConfig(cfg *Config) []string {
 	} else if _, err := os.Stat(cfg.PfxPath); err != nil {
 		errs = append(errs, fmt.Sprintf("PFX file not found: %s", cfg.PfxPath))
 	}
+	if cfg.Protocol != ProtocolAnyConnect {
+		errs = append(errs, fmt.Sprintf("unsupported protocol %q; accepted values: %q", cfg.Protocol, ProtocolAnyConnect))
+	}
 	if cfg.BaseMTU < 576 || cfg.BaseMTU > 20000 {
 		errs = append(errs, fmt.Sprintf("base_mtu out of range (%d); expected 576..20000", cfg.BaseMTU))
 	}

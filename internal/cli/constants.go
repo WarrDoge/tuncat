@@ -10,6 +10,8 @@ const (
 
 	gracefulTimeout = 5 * time.Second
 	exitSignal      = 130
+
+	ProtocolAnyConnect = "anyconnect"
 )
 
 type Config struct {
@@ -32,7 +34,7 @@ type Config struct {
 
 func defaults() *Config {
 	return &Config{
-		Protocol:  "anyconnect",
+		Protocol:  ProtocolAnyConnect,
 		UserAgent: "AnyConnect",
 		BaseMTU:   1200,
 	}
