@@ -42,8 +42,17 @@ func routeToCIDR(route string) (string, error) {
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid route %q", route)
 	}
-	if net.ParseIP(parts[1]) == nil {
+
+	mask := net.ParseIP(parts[1])
+	if mask == nil {
 		return "", fmt.Errorf("invalid route %q", route)
+	}
+
+	// Reject non-contiguous netmasks (e.g. 255.0.0.255) that would
+	// produce a wrong prefix length via net.IPMask.Size().
+	// Size() returns (0, 0) for non-contiguous masks and (0, 32) for 0.0.0.0.
+	if ones, bits := net.IPMask(mask.To4()).Size(); ones == 0 && bits == 0 {
+		return "", fmt.Errorf("non-contiguous netmask in route %q", route)
 	}
 
 	cidr := netutil.IpMaskToCIDR(route)
