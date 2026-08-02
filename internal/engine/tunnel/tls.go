@@ -16,6 +16,40 @@ import (
 // minHeaderLen is the CSTP header size: 4 magic bytes + 2 length + 1 type + 1 reserved.
 const minHeaderLen = 8
 
+// readCSTPFrame reads one CSTP frame from bufR into pl and validates its integrity.
+// It reports three kinds of read errors:
+//   - io.EOF / any io error from bufR.Read
+//   - errShortHeader when fewer than minHeaderLen bytes were read
+//   - errOversizedFrame when the declared data length exceeds buffer capacity
+//   - errPartialFrame when fewer bytes were read than the header+body require
+//
+// readCSTPFrame returns the number of raw bytes consumed from the wire (for
+// statistics) on success.
+func readCSTPFrame(bufR *bufio.Reader, pl *protocol.Payload) (int, error) {
+	bytesReceived, err := bufR.Read(pl.Data)
+	if err != nil {
+		return 0, err
+	}
+
+	// Guard against partial TLS records that don't contain a full CSTP header.
+	if bytesReceived < minHeaderLen {
+		return 0, fmt.Errorf("tls short read: got %d bytes, need at least %d for CSTP header", bytesReceived, minHeaderLen)
+	}
+
+	// Validate declared payload length against buffer capacity.
+	dataLen := binary.BigEndian.Uint16(pl.Data[4:6])
+	maxDataLen := BufferSize - minHeaderLen
+	if dataLen > uint16(maxDataLen) {
+		return 0, fmt.Errorf("tls oversized frame: declared data length %d exceeds max %d", dataLen, maxDataLen)
+	}
+	// Guard against partial reads where the frame body was split across TLS records.
+	if bytesReceived < minHeaderLen+int(dataLen) {
+		return 0, fmt.Errorf("tls partial frame: got %d bytes, need %d for frame body", bytesReceived, minHeaderLen+int(dataLen))
+	}
+
+	return bytesReceived, nil
+}
+
 func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSession, resp *http.Response) {
 	defer func() {
 		engineconfig.Info("tls channel exit")
@@ -26,7 +60,6 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 	var (
 		err           error
 		bytesReceived int
-		dataLen       uint16
 		dead          = time.Duration(cSess.TLSDpdTime+5) * time.Second
 	)
 
@@ -40,35 +73,16 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 		}
 
 		pl := getPayloadBuffer()
-		bytesReceived, err = bufR.Read(pl.Data)
+		bytesReceived, err = readCSTPFrame(bufR, pl)
 		if err != nil {
 			engineconfig.Error("tls server to payloadIn error:", err)
-			return
-		}
-
-		// Guard against partial TLS records that don't contain a full CSTP header.
-		if bytesReceived < minHeaderLen {
-			engineconfig.Error(fmt.Sprintf("tls short read: got %d bytes, need at least %d for CSTP header", bytesReceived, minHeaderLen))
 			return
 		}
 
 		// CSTP framing puts packet type at byte 6.
 		switch pl.Data[6] {
 		case protocol.PayloadData:
-			dataLen = binary.BigEndian.Uint16(pl.Data[4:6])
-
-			// Validate declared payload length against buffer capacity.
-			maxDataLen := BufferSize - minHeaderLen
-			if dataLen > uint16(maxDataLen) {
-				engineconfig.Error(fmt.Sprintf("tls oversized frame: declared data length %d exceeds max %d", dataLen, maxDataLen))
-				return
-			}
-			// Guard against partial reads where the frame body was split across TLS records.
-			if bytesReceived < minHeaderLen+int(dataLen) {
-				engineconfig.Error(fmt.Sprintf("tls partial frame: got %d bytes, need %d for frame body", bytesReceived, minHeaderLen+int(dataLen)))
-				return
-			}
-
+			dataLen := binary.BigEndian.Uint16(pl.Data[4:6])
 			copy(pl.Data, pl.Data[8:8+dataLen])
 			pl.Data = pl.Data[:dataLen]
 
