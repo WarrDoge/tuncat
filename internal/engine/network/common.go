@@ -28,6 +28,26 @@ func NormalizeDNSDomains(domains []string) []string {
 	return normalized
 }
 
+func isContiguousMask(mask net.IP) bool {
+	ip4 := mask.To4()
+	if ip4 == nil {
+		return false
+	}
+	seenZero := false
+	for _, b := range ip4 {
+		for i := 7; i >= 0; i-- {
+			if b&(1<<i) != 0 {
+				if seenZero {
+					return false
+				}
+			} else {
+				seenZero = true
+			}
+		}
+	}
+	return true
+}
+
 func routeToCIDR(route string) (string, error) {
 	route = strings.TrimSpace(route)
 	if route == "" {
@@ -42,8 +62,12 @@ func routeToCIDR(route string) (string, error) {
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid route %q", route)
 	}
-	if net.ParseIP(parts[1]) == nil {
+	maskIP := net.ParseIP(parts[1])
+	if maskIP == nil {
 		return "", fmt.Errorf("invalid route %q", route)
+	}
+	if !isContiguousMask(maskIP) {
+		return "", fmt.Errorf("invalid route %q: netmask %s is non-contiguous", route, parts[1])
 	}
 
 	cidr := netutil.IpMaskToCIDR(route)
