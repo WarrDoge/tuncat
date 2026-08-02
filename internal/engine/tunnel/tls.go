@@ -42,6 +42,13 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 			return
 		}
 
+		// CSTP header is 8 bytes. A short read yields index-out-of-range on access.
+		if bytesReceived < 8 {
+			engineconfig.Warn("tls server short read:", bytesReceived, "bytes, expected >= 8")
+			putPayloadBuffer(pl)
+			continue
+		}
+
 		// CSTP framing puts packet type at byte 6.
 		switch pl.Data[6] {
 		case protocol.PayloadData:
