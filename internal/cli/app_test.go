@@ -416,3 +416,52 @@ func TestLoadConfigResolvesRelativePFXPath(t *testing.T) {
 		t.Fatalf("resolved pfx_path = %q, want %q", cfg.PfxPath, want)
 	}
 }
+
+func TestObscureConfigSecretsInFileWriteFailure(t *testing.T) {
+	// Create a config file in a read-only temp directory so that
+	// obscureConfigSecretsInFile cannot create its temp file.
+	// The original file must remain untouched.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	input := strings.Join([]string{
+		`server: "vpn.example.com/group"`,
+		`password: "plain-password"`,
+		`pfx_password: "plain-pfx-password"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove write permission from the directory so that os.CreateTemp
+	// fails, simulating a write failure.
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{})
+	if err == nil {
+		t.Fatal("expected error for read-only config directory")
+	}
+	if changed {
+		t.Fatal("expected no change on write failure")
+	}
+
+	// Verify the original file is completely unchanged.
+	chmodReadOnly(t, dir) // restore read to check
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != input {
+		t.Fatalf("original file was modified:\nbefore: %q\nafter:  %q", input, string(raw))
+	}
+}
+
+// chmodReadOnly restores write permission to a directory that was made
+// read-only for testing. The t.TempDir cleanup removes the directory
+// tree and needs write permission.
+func chmodReadOnly(t *testing.T, dir string) {
+	t.Helper()
+	_ = os.Chmod(dir, 0700)
+}
