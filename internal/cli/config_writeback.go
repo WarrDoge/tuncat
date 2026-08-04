@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -55,8 +56,28 @@ func obscureConfigSecretsInFile(path string, setFlags map[string]bool) (bool, er
 	if info, statErr := os.Stat(path); statErr == nil {
 		mode = info.Mode().Perm()
 	}
-	if err := os.WriteFile(path, encoded, mode); err != nil {
-		return false, fmt.Errorf("write config write-back: %w", err)
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), "tuncat-config-*.yaml")
+	if err != nil {
+		return false, fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmp.Write(encoded); err != nil {
+		tmp.Close()
+		return false, fmt.Errorf("write temp file: %w", err)
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		tmp.Close()
+		return false, fmt.Errorf("chmod temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return false, fmt.Errorf("close temp file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		return false, fmt.Errorf("rename temp file: %w", err)
 	}
 
 	return true, nil
