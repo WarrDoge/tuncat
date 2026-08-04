@@ -109,8 +109,6 @@ func applyVPNCoreConfig(vpnCtx *lib.VPNContext, cfg *Config, verbose bool) {
 	}
 	vpnCtx.Cfg.LogPath = ""
 	vpnCtx.Cfg.DebugLogPath = ""
-	vpnCtx.Cfg.InsecureSkipVerify = false
-	vpnCtx.Cfg.CiscoCompat = true
 	vpnCtx.Cfg.NoDTLS = false
 	vpnCtx.Cfg.AgentVersion = "v9.12-1build5"
 	vpnCtx.Cfg.AgentName = "AnyConnect"

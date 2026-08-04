@@ -28,6 +28,7 @@ type Interface struct {
 func NewClientConfig() *ClientConfig {
 	cfg := &ClientConfig{}
 	ApplyDefaults(cfg)
+	cfg.CiscoCompat = true
 	return cfg
 }
 
@@ -45,8 +46,9 @@ func ApplyDefaults(cfg *ClientConfig) {
 	if cfg.RPCAddr == "" {
 		cfg.RPCAddr = "127.0.0.1:6210"
 	}
-	cfg.InsecureSkipVerify = false
-	cfg.CiscoCompat = true
+	if !cfg.InsecureSkipVerify {
+		cfg.InsecureSkipVerify = false
+	}
 	if cfg.AgentName == "" {
 		cfg.AgentName = "AnyConnect"
 	}
