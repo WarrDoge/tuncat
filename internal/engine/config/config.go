@@ -1,5 +1,20 @@
 package config
 
+import (
+	"fmt"
+	"net"
+	"strings"
+)
+
+// knownLevels maps the set of valid log level names for validation.
+var knownLevels = map[string]bool{
+	"debug": true,
+	"info":  true,
+	"warn":  true,
+	"error": true,
+	"fatal": true,
+}
+
 type ClientConfig struct {
 	LogLevel           string `json:"log_level"`
 	LogPath            string `json:"log_path"`
@@ -16,6 +31,55 @@ type ClientConfig struct {
 	DNSDomains  []string `json:"dns_domains"`
 
 	ServerCertPin string `json:"server_cert"`
+}
+
+// Validate checks the config and returns a slice of errors for every field
+// that is invalid. An empty slice means the config is valid.
+// Fields that ApplyDefaults fills (empty RPCAddr, empty LogLevel) are allowed;
+// they are not errors here — call ApplyDefaults before or after Validate
+// depending on whether the caller wants to fail early or fill defaults first.
+func (c *ClientConfig) Validate() []error {
+	var errs []error
+
+	if c.BaseMTU != 0 && (c.BaseMTU < 576 || c.BaseMTU > 20000) {
+		errs = append(errs, fmt.Errorf(
+			"base_mtu out of range (%d); expected 576..20000 (0 means default)", c.BaseMTU))
+	}
+
+	for i, r := range c.SplitRoutes {
+		if _, _, err := parseCIDR(r); err != nil {
+			errs = append(errs, fmt.Errorf("split_routes[%d]: %w", i, err))
+		}
+	}
+
+	if c.RPCAddr != "" {
+		_, _, err := net.SplitHostPort(c.RPCAddr)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("rpc_addr %q: missing or invalid port", c.RPCAddr))
+		}
+	}
+
+	if c.LogLevel != "" {
+		if !knownLevels[strings.ToLower(c.LogLevel)] {
+			errs = append(errs, fmt.Errorf(
+				"log_level %q is not a known level; expected one of: Debug, Info, Warn, Error, Fatal",
+				c.LogLevel))
+		}
+	}
+
+	return errs
+}
+
+func parseCIDR(cidr string) (string, int, error) {
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid CIDR %q: %w", cidr, err)
+	}
+	if ipnet.IP.To4() == nil {
+		return "", 0, fmt.Errorf("IPv6 CIDR %q not supported", cidr)
+	}
+	ones, _ := ipnet.Mask.Size()
+	return ipnet.IP.String(), ones, nil
 }
 
 type Interface struct {

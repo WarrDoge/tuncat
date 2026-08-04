@@ -1,6 +1,7 @@
 package control
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,9 @@ func ensureContext(ctx *engine.Context) error {
 	}
 	if ctx.Cfg == nil {
 		ctx.Cfg = engineconfig.NewClientConfig()
+	}
+	if errs := ctx.Cfg.Validate(); len(errs) > 0 {
+		return fmt.Errorf("invalid engine config: %w", errors.Join(errs...))
 	}
 	if ctx.LocalInterface == nil {
 		ctx.LocalInterface = engineconfig.NewInterface()
