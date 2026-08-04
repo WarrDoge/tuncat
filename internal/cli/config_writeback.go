@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -17,9 +18,18 @@ func obscureConfigSecretsInFile(path string, setFlags map[string]bool) (bool, er
 		return false, fmt.Errorf("read config for write-back: %w", err)
 	}
 
-	var cfg map[string]any
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return false, fmt.Errorf("parse config for write-back: %w", err)
+	}
+
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
+		return false, fmt.Errorf("parse config for write-back: expected document node")
+	}
+
+	mapping := doc.Content[0]
+	if mapping.Kind != yaml.MappingNode {
+		return false, fmt.Errorf("parse config for write-back: expected mapping at root")
 	}
 
 	changed := false
@@ -30,15 +40,19 @@ func obscureConfigSecretsInFile(path string, setFlags map[string]bool) (bool, er
 		if setFlags[flagName] {
 			continue
 		}
-		value, ok := cfg[key].(string)
-		if !ok || value == "" || isObscured(value) {
+		val := findMappingValue(mapping, key)
+		if val == nil || val.Kind != yaml.ScalarNode {
 			continue
 		}
-		obscured, err := obscure(value)
+		if val.Value == "" || isObscured(val.Value) {
+			continue
+		}
+		obscured, err := obscure(val.Value)
 		if err != nil {
 			return false, fmt.Errorf("obscure %s: %w", key, err)
 		}
-		cfg[key] = obscured
+		val.Value = obscured
+		val.Tag = "!!str"
 		changed = true
 	}
 
@@ -46,11 +60,15 @@ func obscureConfigSecretsInFile(path string, setFlags map[string]bool) (bool, er
 		return false, nil
 	}
 
-	encoded, err := yaml.Marshal(cfg)
-	if err != nil {
-		return false, fmt.Errorf("marshal config write-back: %w", err)
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(&doc); err != nil {
+		return false, fmt.Errorf("encode config write-back: %w", err)
 	}
+	encoder.Close()
 
+	encoded := buf.Bytes()
 	mode := os.FileMode(0o600)
 	if info, statErr := os.Stat(path); statErr == nil {
 		mode = info.Mode().Perm()
@@ -60,6 +78,18 @@ func obscureConfigSecretsInFile(path string, setFlags map[string]bool) (bool, er
 	}
 
 	return true, nil
+}
+
+// findMappingValue walks a yaml.MappingNode looking for the given key
+// at the top level and returns the corresponding value node, or nil
+// if the key is not found.
+func findMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	for i := 0; i < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
 }
 
 func isObscured(value string) bool {

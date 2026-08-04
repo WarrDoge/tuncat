@@ -302,10 +302,10 @@ func TestObscureConfigSecretsInFile(t *testing.T) {
 	if strings.Contains(content, "plain-password") || strings.Contains(content, "plain-pfx-password") {
 		t.Fatalf("plaintext secrets remained in file:\n%s", content)
 	}
-	if !strings.Contains(content, `password: obscured:`) {
+	if !strings.Contains(content, `password: "obscured:`) {
 		t.Fatalf("password was not obscured:\n%s", content)
 	}
-	if !strings.Contains(content, `pfx_password: obscured:`) {
+	if !strings.Contains(content, `pfx_password: "obscured:`) {
 		t.Fatalf("pfx_password was not obscured:\n%s", content)
 	}
 }
@@ -343,6 +343,150 @@ func TestObscureConfigSecretsInFileSkipsCLIOverrides(t *testing.T) {
 	}
 	if !strings.Contains(content, `pfx_password: "plain-pfx-password"`) {
 		t.Fatalf("pfx_password should remain plaintext when overridden by CLI:\n%s", content)
+	}
+}
+
+func TestObscureConfigSecretsInFilePreservesCommentsAndOrdering(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	input := strings.Join([]string{
+		"# Top-level config for VPN",
+		`server: "vpn.example.com/external"`,
+		"# Password for the VPN connection",
+		`password: "plain-password"`,
+		"# Username for authentication",
+		`username: "user"`,
+		"# PFX password (optional)",
+		`pfx_password: "plain-pfx-password"`,
+		"# Connection timeout",
+		`timeout: 30`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile error: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected config write-back to change plaintext secrets")
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(raw)
+
+	// Comments preserved
+	if !strings.Contains(content, "# Top-level config for VPN") {
+		t.Fatalf("comment #1 not preserved:\n%s", content)
+	}
+	if !strings.Contains(content, "# Password for the VPN connection") {
+		t.Fatalf("comment #2 not preserved:\n%s", content)
+	}
+	if !strings.Contains(content, "# Username for authentication") {
+		t.Fatalf("comment #3 not preserved:\n%s", content)
+	}
+	if !strings.Contains(content, "# PFX password (optional)") {
+		t.Fatalf("comment #4 not preserved:\n%s", content)
+	}
+	if !strings.Contains(content, "# Connection timeout") {
+		t.Fatalf("comment #5 not preserved:\n%s", content)
+	}
+
+	// Secrets obscured
+	if strings.Contains(content, "plain-password") || strings.Contains(content, "plain-pfx-password") {
+		t.Fatalf("plaintext secrets remained in file:\n%s", content)
+	}
+	if !strings.Contains(content, `password: "obscured:`) {
+		t.Fatalf("password was not obscured:\n%s", content)
+	}
+	if !strings.Contains(content, `pfx_password: "obscured:`) {
+		t.Fatalf("pfx_password was not obscured:\n%s", content)
+	}
+
+	// Field ordering preserved: server -> password -> username -> pfx_password -> timeout
+	lines := strings.Split(content, "\n")
+	var fields []string
+	for _, line := range lines {
+		for _, f := range []string{"server:", "password:", "username:", "pfx_password:", "timeout:"} {
+			if strings.HasPrefix(strings.TrimSpace(line), f) {
+				fields = append(fields, f)
+				break
+			}
+		}
+	}
+	want := []string{"server:", "password:", "username:", "pfx_password:", "timeout:"}
+	if len(fields) != len(want) {
+		t.Fatalf("field count = %d, want %d; got order %v", len(fields), len(want), fields)
+	}
+	for i, f := range fields {
+		if f != want[i] {
+			t.Fatalf("field order: at index %d got %q, want %q; full order %v", i, f, want[i], fields)
+		}
+	}
+
+	// Non-secret values unmodified
+	if !strings.Contains(content, `server: "vpn.example.com/external"`) {
+		t.Fatalf("server value modified:\n%s", content)
+	}
+	if !strings.Contains(content, `username: "user"`) {
+		t.Fatalf("username value modified:\n%s", content)
+	}
+	if !strings.Contains(content, `timeout: 30`) {
+		t.Fatalf("timeout value modified:\n%s", content)
+	}
+}
+
+func TestObscureConfigSecretsInFileAlreadyObscured(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	input := strings.Join([]string{
+		`password: "obscured:some-existing-value"`,
+		`pfx_password: "obscured:another-value"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile error: %v", err)
+	}
+	if changed {
+		t.Fatal("expected no change when secrets already obscured")
+	}
+}
+
+func TestObscureConfigSecretsInFileNonStringValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	input := strings.Join([]string{
+		"password:", // null value
+		`server: "vpn.example.com"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := obscureConfigSecretsInFile(path, map[string]bool{})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile error: %v", err)
+	}
+	if changed {
+		t.Fatal("expected no change when password is null")
+	}
+}
+
+func TestObscureConfigSecretsInFileEmptyPath(t *testing.T) {
+	changed, err := obscureConfigSecretsInFile("", map[string]bool{})
+	if err != nil {
+		t.Fatalf("obscureConfigSecretsInFile('') error: %v", err)
+	}
+	if changed {
+		t.Fatal("expected no change for empty path")
 	}
 }
 
