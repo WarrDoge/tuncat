@@ -27,7 +27,7 @@ func (r *Record) readLines() error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -51,7 +51,7 @@ func (r *Record) Write(content string, prepend bool) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := bufio.NewWriter(f)
 	if _, err = fmt.Fprintf(writer, "%s\n", content); err != nil {

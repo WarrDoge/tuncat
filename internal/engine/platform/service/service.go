@@ -37,9 +37,9 @@ func init() {
 // Start should not block. Do the actual work async.
 func (p *program) Start(s service.Service) error {
 	if service.Interactive() {
-		logger.Info("Running in terminal.")
+		_ = logger.Info("Running in terminal.")
 	} else {
-		logger.Info("Running under service manager.")
+		_ = logger.Info("Running under service manager.")
 	}
 	go p.run()
 	return nil
@@ -47,7 +47,7 @@ func (p *program) Start(s service.Service) error {
 
 // Stop should not block. Return with a few seconds.
 func (p *program) Stop(s service.Service) error {
-	logger.Info("I'm Stopping!")
+	_ = logger.Info("I'm Stopping!")
 	engineconfig.Info("Stop")
 	if p.server != nil {
 		p.server.DisConnect()

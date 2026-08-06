@@ -134,7 +134,7 @@ func InitAuth(ctx *engine.Context) error {
 		// Some gateways request client-cert capability first and then expect
 		// a fresh init request on a new TLS connection.
 		if authState.Conn != nil {
-			authState.Conn.Close()
+			_ = authState.Conn.Close()
 		}
 		if err := openConn(); err != nil {
 			return err
@@ -283,7 +283,7 @@ func tplPost(ctx *engine.Context, typ int, path string, dtd *protocol.DTD) error
 		closeAuthConn(authState)
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -334,7 +334,7 @@ func (e *authHTTPStatusError) Error() string {
 
 func closeAuthConn(authState *engine.AuthState) {
 	if authState != nil && authState.Conn != nil {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		authState.Conn = nil
 		authState.BufR = nil
 	}

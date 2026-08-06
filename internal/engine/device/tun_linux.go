@@ -115,7 +115,7 @@ func createNetlinkSocket() (int, error) {
 
 func (tun *NativeTun) routineNetlinkListener() {
 	defer func() {
-		unix.Close(tun.netlinkSock)
+		_ = unix.Close(tun.netlinkSock)
 		tun.hackListenerClosed.Lock()
 		close(tun.events)
 		tun.netlinkCancel.Close()
@@ -200,7 +200,7 @@ func getIFIndex(name string) (int32, error) {
 		return 0, err
 	}
 
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 
 	var ifr [ifReqSize]byte
 	copy(ifr[:], name)
@@ -234,7 +234,7 @@ func (tun *NativeTun) setMTU(n int) error {
 		return err
 	}
 
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 
 	// do ioctl call
 	var ifr [ifReqSize]byte
@@ -270,7 +270,7 @@ func (tun *NativeTun) MTU() (int, error) {
 		return 0, err
 	}
 
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 
 	// do ioctl call
 
@@ -411,7 +411,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	var flags uint16 = unix.IFF_TUN | unix.IFF_NO_PI // (disabled for TUN status hack)
 	nameBytes := []byte(name)
 	if len(nameBytes) >= unix.IFNAMSIZ {
-		unix.Close(nfd)
+		_ = unix.Close(nfd)
 		return nil, fmt.Errorf("interface name too long: %w", unix.ENAMETOOLONG)
 	}
 	copy(ifr[:], nameBytes)
@@ -424,13 +424,13 @@ func CreateTUN(name string, mtu int) (Device, error) {
 		uintptr(unsafe.Pointer(&ifr[0])),
 	)
 	if errno != 0 {
-		unix.Close(nfd)
+		_ = unix.Close(nfd)
 		return nil, errno
 	}
 
 	err = unix.SetNonblock(nfd, true)
 	if err != nil {
-		unix.Close(nfd)
+		_ = unix.Close(nfd)
 		return nil, err
 	}
 
@@ -467,7 +467,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	}
 	tun.netlinkCancel, err = rwcancel.NewRWCancel(tun.netlinkSock)
 	if err != nil {
-		unix.Close(tun.netlinkSock)
+		_ = unix.Close(tun.netlinkSock)
 		return nil, err
 	}
 
@@ -477,7 +477,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 
 	err = tun.setMTU(mtu)
 	if err != nil {
-		unix.Close(tun.netlinkSock)
+		_ = unix.Close(tun.netlinkSock)
 		return nil, err
 	}
 

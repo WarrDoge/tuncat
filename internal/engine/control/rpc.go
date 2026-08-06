@@ -128,7 +128,7 @@ func (server *RPCServer) rpc(resp http.ResponseWriter, req *http.Request) {
 		engineconfig.Error(err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	jsonStream := ws.NewObjectStream(conn)
 	rpcConn := jsonrpc2.NewConn(req.Context(), jsonStream, server, jsonrpc2.SetLogger(engineconfig.GetBaseLogger()))

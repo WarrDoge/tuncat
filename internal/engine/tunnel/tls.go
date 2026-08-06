@@ -15,7 +15,7 @@ import (
 func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSession, resp *http.Response) {
 	defer func() {
 		engineconfig.Info("tls channel exit")
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		_ = conn.Close()
 		cSess.Close()
 	}()

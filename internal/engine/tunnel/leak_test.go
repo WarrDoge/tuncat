@@ -83,8 +83,8 @@ func cstpFrame(ptype byte, data []byte) []byte {
 func driveTLS(t *testing.T, cSess *enginesession.ConnSession, stream []byte) {
 	t.Helper()
 	c, srv := net.Pipe()
-	defer srv.Close()
-	defer c.Close()
+	defer func() { _ = srv.Close() }()
+	defer func() { _ = c.Close() }()
 	resp := &http.Response{Body: io.NopCloser(bytes.NewReader(nil))}
 
 	var r io.Reader

@@ -67,19 +67,19 @@ func SetupTunnel(ctx *engine.Context) error {
 
 	err := req.Write(authState.Conn)
 	if err != nil {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		return err
 	}
 	var resp *http.Response
 	// resp.Body is closed by tlsChannel.
 	resp, err = http.ReadResponse(authState.BufR, req)
 	if err != nil {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		return fmt.Errorf("tunnel negotiation failed %s", resp.Status)
 	}
 	if cfg.LogLevel == "Debug" {
@@ -97,7 +97,7 @@ func SetupTunnel(ctx *engine.Context) error {
 
 	err = setupTun(ctx, cSess)
 	if err != nil {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		cSess.Close()
 		return err
 	}
@@ -111,7 +111,7 @@ func SetupTunnel(ctx *engine.Context) error {
 	// Route and DNS setup stays synchronous relative to the data plane startup.
 	err = network.SetRoutes(ctx, cSess)
 	if err != nil {
-		authState.Conn.Close()
+		_ = authState.Conn.Close()
 		cSess.Close()
 		return err
 	}
