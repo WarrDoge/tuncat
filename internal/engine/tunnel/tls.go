@@ -20,9 +20,7 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 		cSess.Close()
 	}()
 	var (
-		err           error
 		bytesReceived int
-		dataLen       uint16
 		dead          = time.Duration(cSess.TLSDpdTime+5) * time.Second
 	)
 
@@ -36,34 +34,45 @@ func tlsChannel(conn *tls.Conn, bufR *bufio.Reader, cSess *enginesession.ConnSes
 		}
 
 		pl := getPayloadBuffer()
-		bytesReceived, err = bufR.Read(pl.Data)
+		// ReadFrame consumes exactly one frame, so a frame split across TCP
+		// segments is completed instead of mis-parsed, and the attacker
+		// controlled length field is checked against the buffer before it is
+		// used to slice.
+		ptype, data, err := protocol.ReadFrame(bufR, pl.Data)
 		if err != nil {
 			engineconfig.Error("tls server to payloadIn error:", err)
+			putPayloadBuffer(pl)
 			return
 		}
+		bytesReceived = len(protocol.Header) + len(data)
 
-		// CSTP framing puts packet type at byte 6.
-		switch pl.Data[6] {
+		switch ptype {
 		case protocol.PayloadData:
-			dataLen = binary.BigEndian.Uint16(pl.Data[4:6])
-			copy(pl.Data, pl.Data[8:8+dataLen])
-			pl.Data = pl.Data[:dataLen]
+			// Overlapping but forward-moving, so copy behaves like memmove.
+			copy(pl.Data, data)
+			pl.Data = pl.Data[:len(data)]
 
 			select {
-			case cSess.PayloadIn <- pl:
+			case cSess.PayloadIn <- pl: // ownership passes to the receiver
 			case <-cSess.CloseChan:
+				putPayloadBuffer(pl)
 				return
 			}
 		case protocol.PayloadDPDResp:
 			engineconfig.Debug("tls receive DPD-RESP")
+			putPayloadBuffer(pl)
 		case protocol.PayloadDPDReq:
 			// Reply via the same outbound path so keepalive timing stays consistent.
 			pl.Type = protocol.PayloadDPDResp
 			select {
-			case cSess.PayloadOutTLS <- pl:
+			case cSess.PayloadOutTLS <- pl: // ownership passes to the sender
 			case <-cSess.CloseChan:
+				putPayloadBuffer(pl)
 				return
 			}
+		default:
+			engineconfig.Debug("tls unknown CSTP payload type")
+			putPayloadBuffer(pl)
 		}
 		cSess.Stat.BytesReceived.Add(uint64(bytesReceived))
 	}

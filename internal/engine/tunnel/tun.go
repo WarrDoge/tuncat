@@ -66,6 +66,7 @@ func tunToPayloadOut(dev device.Device, cSess *enginesession.ConnSession, offset
 		n, err = dev.Read(pl.Data, offset)
 		if err != nil {
 			engineconfig.Error("tun to payloadOut error:", err)
+			putPayloadBuffer(pl)
 			return
 		}
 
@@ -73,15 +74,16 @@ func tunToPayloadOut(dev device.Device, cSess *enginesession.ConnSession, offset
 
 		if cSess.DtlsConnected.Load() {
 			select {
-			case cSess.PayloadOutDTLS <- pl:
+			case cSess.PayloadOutDTLS <- pl: // ownership passes to the sender
 				continue
 			case <-cSess.DSess.CloseChan:
-				// DTLS disconnected, fall through to TLS
+				// DTLS disconnected; we still own pl, fall through to TLS.
 			}
 		}
 		select {
-		case cSess.PayloadOutTLS <- pl:
+		case cSess.PayloadOutTLS <- pl: // ownership passes to the sender
 		case <-cSess.CloseChan:
+			putPayloadBuffer(pl)
 			return
 		}
 	}

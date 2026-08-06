@@ -101,29 +101,44 @@ func dtlsChannel(cSess *enginesession.ConnSession, preMasterSecret []byte) {
 		bytesReceived, err = conn.Read(pl.Data)
 		if err != nil {
 			engineconfig.Error("dtls server to payloadIn error:", err)
+			putPayloadBuffer(pl)
 			return
+		}
+		if bytesReceived < 1 {
+			// No type byte to dispatch on; nothing owns the buffer yet.
+			putPayloadBuffer(pl)
+			continue
 		}
 
 		// Legacy DTLS packet type is encoded in the first byte.
 		switch pl.Data[0] {
 		case protocol.PayloadKeepalive:
+			putPayloadBuffer(pl)
 		case protocol.PayloadDisconnect:
+			putPayloadBuffer(pl)
 			return
 		case protocol.PayloadDPDReq:
 			pl.Type = protocol.PayloadDPDResp
 			select {
-			case cSess.PayloadOutDTLS <- pl:
+			case cSess.PayloadOutDTLS <- pl: // ownership passes to the sender
 			case <-dSess.CloseChan:
+				putPayloadBuffer(pl)
+				return
 			}
 		case protocol.PayloadDPDResp:
 			engineconfig.Debug("dtls receive DPD-RESP")
+			putPayloadBuffer(pl)
 		case protocol.PayloadData:
 			pl.Data = append(pl.Data[:0], pl.Data[1:bytesReceived]...)
 			select {
-			case cSess.PayloadIn <- pl:
+			case cSess.PayloadIn <- pl: // ownership passes to the receiver
 			case <-dSess.CloseChan:
+				putPayloadBuffer(pl)
 				return
 			}
+		default:
+			engineconfig.Debug("dtls unknown payload type")
+			putPayloadBuffer(pl)
 		}
 		cSess.Stat.BytesReceived.Add(uint64(bytesReceived))
 	}
